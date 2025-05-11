@@ -1,0 +1,9 @@
+names:
+- top_left
+- top_right
+- bottom_left
+- bottom_right
+nc: 4
+test: D:\vnese-id-management\vnese-id-be-python\dataset\corners\test\images
+train: D:\vnese-id-management\vnese-id-be-python\dataset\corners\train\images
+val: D:\vnese-id-management\vnese-id-be-python\dataset\corners\valid\images

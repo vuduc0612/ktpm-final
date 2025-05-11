@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trích xuất thông tin CMND/CCCD</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .file-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .submit-btn {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .submit-btn:hover {
+            background-color: #3367d6;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .info-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .avatar-container {
+            flex: 0 0 200px;
+        }
+        .avatar-container img {
+            width: 100%;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .info-details {
+            flex: 1;
+        }
+        .info-row {
+            margin-bottom: 8px;
+            display: flex;
+        }
+        .info-label {
+            font-weight: bold;
+            min-width: 150px;
+        }
+        .info-value {
+            flex: 1;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            border-top-color: #007bff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Trích xuất thông tin CMND/CCCD</h1>
+    
+    <div class="section">
+        <h2>Upload ảnh CMND/CCCD</h2>
+        <form id="extractForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="idCardFile">Chọn ảnh CMND/CCCD:</label>
+                <input type="file" id="idCardFile" name="file" class="file-input" required accept="image/*">
+                <p><small>Chấp nhận các định dạng ảnh: JPG, PNG, JPEG</small></p>
+            </div>
+            <button type="submit" class="submit-btn">Trích xuất thông tin</button>
+        </form>
+        <div id="extractResult" class="result"></div>
+    </div>
+    
+    <div id="idCardInfo" style="display: none;" class="section">
+        <h2>Thông tin CMND/CCCD</h2>
+        <div class="info-container">
+            <div class="avatar-container">
+                <img id="avatar" src="" alt="Ảnh chân dung">
+            </div>
+            <div class="info-details">
+                <div class="info-row">
+                    <div class="info-label">Số CMND/CCCD:</div>
+                    <div id="id" class="info-value"></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Họ tên:</div>
+                    <div id="name" class="info-value"></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Ngày sinh:</div>
+                    <div id="dob" class="info-value"></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Giới tính:</div>
+                    <div id="gender" class="info-value"></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Quốc tịch:</div>
+                    <div id="nationality" class="info-value"></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Quê quán:</div>
+                    <div id="placeOfBirth" class="info-value"></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Địa chỉ:</div>
+                    <div id="address" class="info-value"></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Có giá trị đến:</div>
+                    <div id="expireDate" class="info-value"></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">ID người dùng:</div>
+                    <input type="number" id="userId" class="file-input" style="width: 200px;" placeholder="Nhập ID người dùng">
+                </div>
+            </div>
+        </div>
+        <div style="margin-top: 20px;">
+            <button id="saveIdCardBtn" class="submit-btn">Lưu thông tin</button>
+            <div id="saveResult" class="result"></div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('extractForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('idCardFile');
+            const resultDiv = document.getElementById('extractResult');
+            const idCardInfoDiv = document.getElementById('idCardInfo');
+            
+            if (fileInput.files.length === 0) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '<h3>Lỗi!</h3><p>Vui lòng chọn ảnh CMND/CCCD</p>';
+                resultDiv.style.display = 'block';
+                idCardInfoDiv.style.display = 'none';
+                return;
+            }
+            
+            formData.append('file', fileInput.files[0]);
+            
+            resultDiv.innerHTML = '<h3>Đang trích xuất thông tin...</h3><div class="loading"></div>';
+            resultDiv.className = 'result';
+            resultDiv.style.display = 'block';
+            idCardInfoDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/v1/idcard/extract', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>Trích xuất thành công!</h3>
+                        <p>Đã trích xuất thông tin CMND/CCCD thành công</p>
+                    `;
+                    
+                    // Hiển thị thông tin đã trích xuất
+                    displayIdCardInfo(data.data);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>Lỗi!</h3>
+                        <p>${data.message || 'Không thể trích xuất thông tin CMND/CCCD'}</p>
+                    `;
+                    idCardInfoDiv.style.display = 'none';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>Lỗi!</h3>
+                    <p>Không thể kết nối đến máy chủ: ${error.message}</p>
+                `;
+                idCardInfoDiv.style.display = 'none';
+            }
+        });
+        
+        function displayIdCardInfo(data) {
+            // Hiển thị khối thông tin
+            document.getElementById('idCardInfo').style.display = 'block';
+            
+            // Cập nhật từng trường thông tin
+            document.getElementById('avatar').src = data.image_avt || '';
+            document.getElementById('id').textContent = data.id || '';
+            document.getElementById('name').textContent = data.name || '';
+            document.getElementById('dob').textContent = data.dob || '';
+            document.getElementById('gender').textContent = data.gender || '';
+            document.getElementById('nationality').textContent = data.nationality || '';
+            document.getElementById('placeOfBirth').textContent = data.place_of_birth || '';
+            document.getElementById('address').textContent = data.address || '';
+            document.getElementById('expireDate').textContent = data.expire_date || '';
+            
+            // Lưu dữ liệu vào global variable để dùng cho việc lưu
+            window.extractedData = data;
+        }
+        
+        // Chức năng lưu thông tin
+        document.getElementById('saveIdCardBtn').addEventListener('click', async function() {
+            const userId = document.getElementById('userId').value;
+            const saveResultDiv = document.getElementById('saveResult');
+            
+            if (!userId) {
+                saveResultDiv.className = 'result error';
+                saveResultDiv.innerHTML = '<h3>Lỗi!</h3><p>Vui lòng nhập ID người dùng</p>';
+                saveResultDiv.style.display = 'block';
+                return;
+            }
+            
+            if (!window.extractedData) {
+                saveResultDiv.className = 'result error';
+                saveResultDiv.innerHTML = '<h3>Lỗi!</h3><p>Không có dữ liệu CMND/CCCD để lưu</p>';
+                saveResultDiv.style.display = 'block';
+                return;
+            }
+            
+            saveResultDiv.innerHTML = '<h3>Đang lưu thông tin...</h3><div class="loading"></div>';
+            saveResultDiv.className = 'result';
+            saveResultDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch(`/api/v1/idcard/save?userId=${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(window.extractedData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    saveResultDiv.className = 'result success';
+                    saveResultDiv.innerHTML = `
+                        <h3>Lưu thành công!</h3>
+                        <p>Đã lưu thông tin CMND/CCCD thành công</p>
+                    `;
+                } else {
+                    saveResultDiv.className = 'result error';
+                    saveResultDiv.innerHTML = `
+                        <h3>Lỗi!</h3>
+                        <p>${data.message || 'Không thể lưu thông tin CMND/CCCD'}</p>
+                    `;
+                }
+            } catch (error) {
+                saveResultDiv.className = 'result error';
+                saveResultDiv.innerHTML = `
+                    <h3>Lỗi!</h3>
+                    <p>Không thể kết nối đến máy chủ: ${error.message}</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html> 

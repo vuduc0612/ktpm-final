@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload YOLO Files</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .file-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .submit-btn {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .submit-btn:hover {
+            background-color: #3367d6;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .delete-btn:hover {
+            background-color: #bd2130;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 300px;
+            border-radius: 5px;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .modal-button {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .confirm-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        .cancel-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        .weight-info {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload YOLO Files</h1>
+    
+    <!-- Dataset Section -->
+    <div class="section">
+        <h2>Dataset Files</h2>
+        <form id="uploadDatasetForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="datasetFiles">Chọn nhiều file (ảnh và file txt):</label>
+                <input type="file" id="datasetFiles" name="files" multiple class="file-input" required>
+                <p><small>Giữ phím Ctrl (hoặc Cmd trên Mac) và click để chọn nhiều file</small></p>
+            </div>
+            <div class="actions">
+                <button type="submit" class="submit-btn">Upload Dataset</button>
+                <button type="button" id="deleteDatasetBtn" class="delete-btn">Xóa Tất Cả File</button>
+            </div>
+        </form>
+        <div id="datasetResult" class="result"></div>
+    </div>
+    
+    <!-- Weight File Section -->
+    <div class="section">
+        <h2>Weight File</h2>
+        <div id="weightInfo" class="weight-info">
+            Đang tải thông tin...
+        </div>
+        <form id="uploadWeightForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="weightFile">Chọn file weight (.pt hoặc .weights):</label>
+                <input type="file" id="weightFile" name="file" class="file-input" required accept=".pt,.weights">
+                <p><small>Kích thước tối đa: 500MB</small></p>
+            </div>
+            <div class="actions">
+                <button type="submit" class="submit-btn">Upload Weight</button>
+                <button type="button" id="deleteWeightBtn" class="delete-btn">Xóa Weight</button>
+            </div>
+        </form>
+        <div id="weightResult" class="result"></div>
+    </div>
+    
+    <!-- Confirm Delete Dataset Modal -->
+    <div id="deleteDatasetModal" class="modal">
+        <div class="modal-content">
+            <h3>Xác nhận xóa dataset</h3>
+            <p>Bạn có chắc chắn muốn xóa tất cả các file dataset?</p>
+            <div class="modal-buttons">
+                <button id="confirmDeleteDataset" class="modal-button confirm-btn">Xóa</button>
+                <button id="cancelDeleteDataset" class="modal-button cancel-btn">Hủy</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirm Delete Weight Modal -->
+    <div id="deleteWeightModal" class="modal">
+        <div class="modal-content">
+            <h3>Xác nhận xóa weight</h3>
+            <p>Bạn có chắc chắn muốn xóa file weight?</p>
+            <div class="modal-buttons">
+                <button id="confirmDeleteWeight" class="modal-button confirm-btn">Xóa</button>
+                <button id="cancelDeleteWeight" class="modal-button cancel-btn">Hủy</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Load weight file info on page load
+        window.addEventListener('DOMContentLoaded', async function() {
+            await loadWeightInfo();
+        });
+        
+        async function loadWeightInfo() {
+            const weightInfoDiv = document.getElementById('weightInfo');
+            
+            try {
+                const response = await fetch('/api/v1/upload/weight-yolo', {
+                    method: 'GET'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.hasWeightFile) {
+                        weightInfoDiv.innerHTML = `
+                            <p><strong>Trạng thái:</strong> Đã có file weight</p>
+                            <p><strong>Tên file:</strong> ${data.filename}</p>
+                        `;
+                    } else {
+                        weightInfoDiv.innerHTML = `
+                            <p><strong>Trạng thái:</strong> Chưa có file weight</p>
+                            <p>Vui lòng upload file weight YOLO (.pt hoặc .weights)</p>
+                        `;
+                    }
+                } else {
+                    weightInfoDiv.innerHTML = `
+                        <p><strong>Lỗi:</strong> ${data.message}</p>
+                    `;
+                }
+            } catch (error) {
+                weightInfoDiv.innerHTML = `
+                    <p><strong>Lỗi:</strong> Không thể kết nối đến máy chủ</p>
+                `;
+            }
+        }
+        
+        // Upload dataset form handling
+        document.getElementById('uploadDatasetForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('datasetFiles');
+            const resultDiv = document.getElementById('datasetResult');
+            
+            // Thêm tất cả các file vào formData
+            for (let i = 0; i < fileInput.files.length; i++) {
+                formData.append('files', fileInput.files[i]);
+            }
+            
+            resultDiv.innerHTML = 'Đang upload...';
+            resultDiv.className = 'result';
+            resultDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/v1/upload/dataset-yolo', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>Upload thành công!</h3>
+                        <p>Số file đã upload: ${data.filesUploaded}</p>
+                        <p>Tổng số file: ${data.totalFiles}</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>Lỗi!</h3>
+                        <p>${data.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>Lỗi!</h3>
+                    <p>Không thể kết nối đến máy chủ: ${error.message}</p>
+                `;
+            }
+        });
+        
+        // Upload weight form handling
+        document.getElementById('uploadWeightForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('weightFile');
+            const resultDiv = document.getElementById('weightResult');
+            
+            if (fileInput.files.length === 0) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '<h3>Lỗi!</h3><p>Vui lòng chọn file weight</p>';
+                resultDiv.style.display = 'block';
+                return;
+            }
+            
+            formData.append('file', fileInput.files[0]);
+            
+            resultDiv.innerHTML = 'Đang upload...';
+            resultDiv.className = 'result';
+            resultDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/v1/upload/weight-yolo', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>Upload thành công!</h3>
+                        <p>File: ${data.filename}</p>
+                    `;
+                    
+                    // Cập nhật thông tin weight
+                    await loadWeightInfo();
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>Lỗi!</h3>
+                        <p>${data.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>Lỗi!</h3>
+                    <p>Không thể kết nối đến máy chủ: ${error.message}</p>
+                `;
+            }
+        });
+        
+        // Delete dataset button handling
+        const deleteDatasetBtn = document.getElementById('deleteDatasetBtn');
+        const deleteDatasetModal = document.getElementById('deleteDatasetModal');
+        const confirmDeleteDataset = document.getElementById('confirmDeleteDataset');
+        const cancelDeleteDataset = document.getElementById('cancelDeleteDataset');
+        const datasetResultDiv = document.getElementById('datasetResult');
+        
+        deleteDatasetBtn.addEventListener('click', function() {
+            deleteDatasetModal.style.display = 'block';
+        });
+        
+        cancelDeleteDataset.addEventListener('click', function() {
+            deleteDatasetModal.style.display = 'none';
+        });
+        
+        confirmDeleteDataset.addEventListener('click', async function() {
+            deleteDatasetModal.style.display = 'none';
+            
+            datasetResultDiv.innerHTML = 'Đang xóa các file...';
+            datasetResultDiv.className = 'result';
+            datasetResultDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/v1/upload/dataset-yolo', {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    datasetResultDiv.className = 'result success';
+                    datasetResultDiv.innerHTML = `
+                        <h3>Xóa thành công!</h3>
+                        <p>Số file đã xóa: ${data.filesDeleted}</p>
+                    `;
+                } else {
+                    datasetResultDiv.className = 'result error';
+                    datasetResultDiv.innerHTML = `
+                        <h3>Lỗi!</h3>
+                        <p>${data.message}</p>
+                    `;
+                }
+            } catch (error) {
+                datasetResultDiv.className = 'result error';
+                datasetResultDiv.innerHTML = `
+                    <h3>Lỗi!</h3>
+                    <p>Không thể kết nối đến máy chủ: ${error.message}</p>
+                `;
+            }
+        });
+        
+        // Delete weight button handling
+        const deleteWeightBtn = document.getElementById('deleteWeightBtn');
+        const deleteWeightModal = document.getElementById('deleteWeightModal');
+        const confirmDeleteWeight = document.getElementById('confirmDeleteWeight');
+        const cancelDeleteWeight = document.getElementById('cancelDeleteWeight');
+        const weightResultDiv = document.getElementById('weightResult');
+        
+        deleteWeightBtn.addEventListener('click', function() {
+            deleteWeightModal.style.display = 'block';
+        });
+        
+        cancelDeleteWeight.addEventListener('click', function() {
+            deleteWeightModal.style.display = 'none';
+        });
+        
+        confirmDeleteWeight.addEventListener('click', async function() {
+            deleteWeightModal.style.display = 'none';
+            
+            weightResultDiv.innerHTML = 'Đang xóa file weight...';
+            weightResultDiv.className = 'result';
+            weightResultDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/v1/upload/weight-yolo', {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    weightResultDiv.className = 'result success';
+                    weightResultDiv.innerHTML = `
+                        <h3>Xóa thành công!</h3>
+                        <p>${data.message}</p>
+                    `;
+                    
+                    // Cập nhật thông tin weight
+                    await loadWeightInfo();
+                } else {
+                    weightResultDiv.className = 'result error';
+                    weightResultDiv.innerHTML = `
+                        <h3>Lỗi!</h3>
+                        <p>${data.message}</p>
+                    `;
+                }
+            } catch (error) {
+                weightResultDiv.className = 'result error';
+                weightResultDiv.innerHTML = `
+                    <h3>Lỗi!</h3>
+                    <p>Không thể kết nối đến máy chủ: ${error.message}</p>
+                `;
+            }
+        });
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === deleteDatasetModal) {
+                deleteDatasetModal.style.display = 'none';
+            }
+            if (event.target === deleteWeightModal) {
+                deleteWeightModal.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html> 

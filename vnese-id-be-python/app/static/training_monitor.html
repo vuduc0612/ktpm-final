@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theo dõi Huấn luyện YOLOv5</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #stop-btn {
+            background-color: #f44336;
+        }
+        #stop-btn:hover {
+            background-color: #d32f2f;
+        }
+        .status {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .metrics {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .metric-box {
+            background-color: #e8f5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px;
+            min-width: 200px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .log-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #282c34;
+            color: #abb2bf;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.4;
+        }
+        .log-entry {
+            margin: 2px 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            border-bottom: 1px dotted #444;
+            padding-bottom: 2px;
+            font-size: 13px;
+        }
+        /* Thêm màu sắc cho các loại log khác nhau */
+        .log-entry.error {
+            color: #ff6b6b;
+        }
+        .log-entry.warning {
+            color: #feca57;
+        }
+        .log-entry.success {
+            color: #1dd1a1;
+        }
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .connected {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .disconnected {
+            background-color: #f44336;
+            color: white;
+        }
+        .progress-container {
+            width: 100%;
+            background-color: #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            height: 25px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 25px;
+            background-color: #4CAF50;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.5s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Theo dõi Huấn luyện YOLOv5</h1>
+        
+        <div class="connection-status disconnected" id="connection-status">Đã ngắt kết nối</div>
+        
+        <div class="control-panel">
+            <button id="start-btn">Bắt đầu Huấn luyện</button>
+            <button id="stop-btn" disabled>Dừng Huấn luyện</button>
+        </div>
+        
+        <div class="status" id="training-status">Trạng thái: Chưa huấn luyện</div>
+        
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar">0%</div>
+        </div>
+        
+        <div class="metrics" id="metrics-container">
+            <div class="metric-box">
+                <h3>Epochs</h3>
+                <p><span id="current-epoch">0</span>/<span id="total-epochs">0</span></p>
+            </div>
+            <div class="metric-box">
+                <h3>Loss</h3>
+                <p>Box: <span id="box-loss">-</span></p>
+                <p>Obj: <span id="obj-loss">-</span></p>
+                <p>Cls: <span id="cls-loss">-</span></p>
+            </div>
+            <div class="metric-box">
+                <h3>Validation</h3>
+                <p>mAP50: <span id="map50">-</span></p>
+                <p>mAP50-95: <span id="map50-95">-</span></p>
+            </div>
+        </div>
+        
+        <h2>Log Huấn luyện</h2>
+        <div class="log-container" id="log-container"></div>
+    </div>
+
+    <script>
+        let socket;
+        let isTraining = false;
+        const logContainer = document.getElementById('log-container');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const statusElement = document.getElementById('training-status');
+        const connectionStatus = document.getElementById('connection-status');
+        const progressBar = document.getElementById('progress-bar');
+        
+        // Kết nối WebSocket
+        function connectWebSocket() {
+            // Lấy host hiện tại
+            const host = window.location.host;
+            console.log(host)
+            // Kết nối WebSocket
+            socket = new WebSocket(`ws://${host}/api/training/ws/training`);
+            
+            socket.onopen = function(e) {
+                console.log("Kết nối WebSocket đã được thiết lập");
+                connectionStatus.textContent = "Đã kết nối";
+                connectionStatus.classList.remove('disconnected');
+                connectionStatus.classList.add('connected');
+                startBtn.disabled = false;
+            };
+            
+            socket.onmessage = function(event) {
+                console.log(event.data)
+                handleWebSocketMessage(JSON.parse(event.data));
+            };
+            
+            socket.onclose = function(event) {
+                if (event.wasClean) {
+                    console.log(`Kết nối đã đóng, mã=${event.code} lý do=${event.reason}`);
+                } else {
+                    console.log('Kết nối bị gián đoạn');
+                }
+                connectionStatus.textContent = "Đã ngắt kết nối";
+                connectionStatus.classList.remove('connected');
+                connectionStatus.classList.add('disconnected');
+                startBtn.disabled = true;
+                stopBtn.disabled = true;
+                
+                // Thử kết nối lại sau 5 giây
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            socket.onerror = function(error) {
+                console.log(`Lỗi WebSocket: ${error.message}`);
+            };
+        }
+        
+        // Xử lý tin nhắn WebSocket
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'status':
+                    if (data.status === 'started') {
+                        isTraining = true;
+                        statusElement.textContent = "Trạng thái: Đang huấn luyện";
+                        startBtn.disabled = true;
+                        stopBtn.disabled = false;
+                        addLogEntry("Bắt đầu quá trình huấn luyện...", 'success');
+                    } else if (data.status === 'completed') {
+                        isTraining = false;
+                        statusElement.textContent = "Trạng thái: Hoàn thành";
+                        startBtn.disabled = false;
+                        stopBtn.disabled = true;
+                        addLogEntry("Quá trình huấn luyện đã hoàn thành.", 'success');
+                    } else if (data.status === 'stopped') {
+                        isTraining = false;
+                        statusElement.textContent = "Trạng thái: Đã dừng";
+                        startBtn.disabled = false;
+                        stopBtn.disabled = true;
+                        addLogEntry("Quá trình huấn luyện đã bị dừng.", 'error');
+                    }
+                    break;
+                
+                case 'raw_log':
+                    addLogEntry(data.content, null);
+                    break;
+                
+                case 'epoch_progress':
+                    document.getElementById('current-epoch').textContent = data.current_epoch;
+                    document.getElementById('total-epochs').textContent = data.total_epochs;
+                    
+                    // Cập nhật thanh tiến trình
+                    const percentage = (data.current_epoch / data.total_epochs) * 100;
+                    progressBar.style.width = `${percentage}%`;
+                    progressBar.textContent = `${Math.round(percentage)}%`;
+                    break;
+                
+                case 'metrics':
+                    if (data.metrics.box_loss !== undefined) {
+                        document.getElementById('box-loss').textContent = data.metrics.box_loss.toFixed(4);
+                    }
+                    if (data.metrics.obj_loss !== undefined) {
+                        document.getElementById('obj-loss').textContent = data.metrics.obj_loss.toFixed(4);
+                    }
+                    if (data.metrics.cls_loss !== undefined) {
+                        document.getElementById('cls-loss').textContent = data.metrics.cls_loss.toFixed(4);
+                    }
+                    break;
+                
+                case 'validation':
+                    if (data.class === 'all') {
+                        document.getElementById('map50').textContent = data.mAP50.toFixed(4);
+                        document.getElementById('map50-95').textContent = data["mAP50-95"].toFixed(4);
+                    }
+                    break;
+                
+                case 'error':
+                    statusElement.textContent = `Lỗi: ${data.message}`;
+                    addLogEntry(`Lỗi: ${data.message}`, 'error');
+                    break;
+            }
+        }
+        
+        // Thêm log mới vào container
+        function addLogEntry(text, logType) {
+            const entry = document.createElement('div');
+            entry.classList.add('log-entry');
+            
+            // Thêm class dựa vào loại log
+            if (logType) {
+                entry.classList.add(logType);
+            }
+            
+            // Phát hiện và áp dụng màu sắc cho log đặc biệt
+            if (text.includes('Epoch') && text.includes('box_loss')) {
+                entry.classList.add('success');
+            } else if (text.includes('WARNING') || text.includes('FutureWarning')) {
+                entry.classList.add('warning');
+            } else if (text.includes('ERROR') || text.includes('Error')) {
+                entry.classList.add('error');
+            } else if (text.includes('completed') || text.includes('Results saved')) {
+                entry.classList.add('success');
+            }
+            
+            entry.textContent = text;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Giới hạn số lượng log hiển thị để tránh quá tải trình duyệt
+            if (logContainer.children.length > 500) {
+                logContainer.removeChild(logContainer.children[0]);
+            }
+        }
+        
+        // Gửi lệnh bắt đầu huấn luyện
+        function startTraining() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    action: 'start_training',
+                    args: {}  // Có thể thêm các tham số nếu cần
+                }));
+            } else {
+                addLogEntry("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.", 'error');
+            }
+        }
+        
+        // Gửi lệnh dừng huấn luyện
+        function stopTraining() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    action: 'stop_training'
+                }));
+            }
+        }
+        
+        // Thiết lập sự kiện cho các nút
+        startBtn.addEventListener('click', startTraining);
+        stopBtn.addEventListener('click', stopTraining);
+        
+        // Kết nối WebSocket khi tải trang
+        connectWebSocket();
+    </script>
+</body>
+</html> 

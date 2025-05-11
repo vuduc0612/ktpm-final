@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: vnese-id-be-java
+  datasource:
+    url: jdbc:mysql://localhost:3306/vneseid?createDatabaseIfNotExist=true
+    username: root
+    password: 123456
+  jpa:
+    hibernate:
+      ddl-auto: update # create-drop, create, update, validate, none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 500MB
+      max-request-size: 500MB
+fastapi:
+  base-url: http://localhost:8888/api
+  websocket-url: ws://localhost:8000/training/ws/training
+
+
+server:
+  port: 8881
+
+logging:
+  level.com.vneseid: DEBUG
+
+# OpenAPI/Swagger configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+
+
