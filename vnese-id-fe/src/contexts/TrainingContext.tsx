@@ -4,8 +4,6 @@ import {
   connectTrainingWebSocket, 
   disconnectTrainingWebSocket, 
   addTrainingMessageListener,
-  startTrainingViaWebSocket,
-  stopTrainingViaWebSocket
 } from '../services/api';
 
 interface TrainingContextData {
@@ -27,11 +25,10 @@ interface TrainingContextType {
   isTraining: boolean;
   isLoading: boolean;
   error: string | null;
-  progress: number;
   trainingLogs: string[];
   webSocketConnected: boolean;
-  startTraining: (config: TrainingConfig) => Promise<void>;
-  stopTraining: () => Promise<void>;
+  // startTraining: (config: TrainingConfig) => Promise<void>;
+  // stopTraining: () => Promise<void>;
   reconnectWebSocket: () => Promise<void>;
 }
 
@@ -47,11 +44,10 @@ const TrainingContext = createContext<TrainingContextType>({
   isTraining: false,
   isLoading: false,
   error: null,
-  progress: 0,
   trainingLogs: [],
   webSocketConnected: false,
-  startTraining: async () => {},
-  stopTraining: async () => {},
+  // startTraining: async () => {},
+  // stopTraining: async () => {},
   reconnectWebSocket: async () => {},
 });
 
@@ -66,7 +62,6 @@ export const TrainingProvider: React.FC<TrainingProviderProps> = ({ children }) 
   const [isTraining, setIsTraining] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
   const [trainingLogs, setTrainingLogs] = useState<string[]>([]);
   const [webSocketConnected, setWebSocketConnected] = useState(false);
 
@@ -88,6 +83,7 @@ export const TrainingProvider: React.FC<TrainingProviderProps> = ({ children }) 
   useEffect(() => {
     const removeListener = addTrainingMessageListener((message) => {
       if (message.type === 'status') {
+        console.log('Context: Nhận được message.status:', message.status);
         if (message.status === 'connected') {
           setWebSocketConnected(true);
         } else if (message.status === 'disconnected') {
@@ -98,6 +94,7 @@ export const TrainingProvider: React.FC<TrainingProviderProps> = ({ children }) 
             ...prev,
             status: 'training'
           }));
+          console.log('Context: Đã đặt isTraining = true', isTraining);
           setTrainingLogs(['Bắt đầu quá trình huấn luyện...']);
         } else if (message.status === 'completed') {
           setIsTraining(false);
@@ -137,8 +134,6 @@ export const TrainingProvider: React.FC<TrainingProviderProps> = ({ children }) 
           currentEpoch,
           totalEpochs
         }));
-        const progress = (currentEpoch / totalEpochs) * 100;
-        setProgress(progress);
       } else if (message.type === 'metrics' && message.metrics) {
         const metrics = {
           box_loss: typeof message.metrics.box_loss === 'number' ? message.metrics.box_loss : undefined,
@@ -182,137 +177,136 @@ export const TrainingProvider: React.FC<TrainingProviderProps> = ({ children }) 
   }, []);
 
   // Bắt đầu huấn luyện
-  const startTraining = async (config: TrainingConfig) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      // Xóa toàn bộ log trước khi bắt đầu huấn luyện mới
-      setTrainingLogs([]);
+  // const startTraining = async (config: TrainingConfig) => {
+  //   try {
+  //     setIsLoading(true);
+  //     setError(null);
+  //     // Xóa toàn bộ log trước khi bắt đầu huấn luyện mới
+  //     setTrainingLogs([]);
       
-      console.log('Context: Trạng thái khi bắt đầu huấn luyện:', {
-        webSocketConnected,
-        isTraining,
-        status: trainingData.status
-      });
+  //     console.log('Context: Trạng thái khi bắt đầu huấn luyện:', {
+  //       webSocketConnected,
+  //       isTraining,
+  //       status: trainingData.status
+  //     });
       
-      // Nếu không có kết nối WebSocket, kết nối lại
-      if (!webSocketConnected) {
-        console.log('Context: Không có kết nối WebSocket, đang kết nối lại...');
-        const connected = await connectTrainingWebSocket();
-        if (!connected) {
-          throw new Error('Không thể kết nối đến máy chủ huấn luyện');
-        }
-        console.log('Context: Kết nối WebSocket thành công:', connected);
-      }
+  //     // Nếu không có kết nối WebSocket, kết nối lại
+  //     if (!webSocketConnected) {
+  //       console.log('Context: Không có kết nối WebSocket, đang kết nối lại...');
+  //       const connected = await connectTrainingWebSocket();
+  //       if (!connected) {
+  //         throw new Error('Không thể kết nối đến máy chủ huấn luyện');
+  //       }
+  //       console.log('Context: Kết nối WebSocket thành công:', connected);
+  //     }
       
-      // Đặt trạng thái huấn luyện trước khi gọi API
-      setIsTraining(true);
-      console.log('Context: Đã đặt isTraining = true');
+  //     // Đặt trạng thái huấn luyện trước khi gọi API
+  //     setIsTraining(true);
+  //     console.log('Context: Đã đặt isTraining = true');
       
-      await startTrainingViaWebSocket(config);
-      console.log('Context: Đã gửi lệnh bắt đầu huấn luyện qua WebSocket');
+  //     // await startTrainingViaWebSocket(config);
+  //     console.log('Context: Đã gửi lệnh bắt đầu huấn luyện qua WebSocket');
       
-      setTrainingData({
-        currentEpoch: 0,
-        totalEpochs: config.epochs,
-        metrics: {},
-        status: 'training'
-      });
+  //     setTrainingData({
+  //       currentEpoch: 0,
+  //       totalEpochs: config.epochs,
+  //       metrics: {},
+  //       status: 'training'
+  //     });
       
-      // Đảm bảo isTraining = true
-      setIsTraining(true);
-      setProgress(0);
+  //     // Đảm bảo isTraining = true
+  //     setIsTraining(true);
       
-      console.log('Context: Trạng thái sau khi bắt đầu huấn luyện:', {
-        webSocketConnected,
-        isTraining: true,
-        status: 'training'
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi không xác định khi bắt đầu huấn luyện');
-      console.error('Context: Lỗi khi bắt đầu huấn luyện:', err);
-      // Đặt lại trạng thái nếu có lỗi
-      setIsTraining(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //     console.log('Context: Trạng thái sau khi bắt đầu huấn luyện:', {
+  //       webSocketConnected,
+  //       isTraining: true,
+  //       status: 'training'
+  //     });
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : 'Lỗi không xác định khi bắt đầu huấn luyện');
+  //     console.error('Context: Lỗi khi bắt đầu huấn luyện:', err);
+  //     // Đặt lại trạng thái nếu có lỗi
+  //     setIsTraining(false);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
-  // Dừng huấn luyện
-  const stopTraining = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  // // Dừng huấn luyện
+  // const stopTraining = async () => {
+  //   try {
+  //     setIsLoading(true);
+  //     setError(null);
       
-      console.log('Context: Trạng thái khi dừng huấn luyện:', {
-        webSocketConnected,
-        isTraining,
-        status: trainingData.status
-      });
+  //     console.log('Context: Trạng thái khi dừng huấn luyện:', {
+  //       webSocketConnected,
+  //       isTraining,
+  //       status: trainingData.status
+  //     });
       
-      console.log('Context: Đang cố gắng dừng quá trình huấn luyện...');
+  //     console.log('Context: Đang cố gắng dừng quá trình huấn luyện...');
       
-      // Đặt trạng thái đầu tiên
-      setIsTraining(false);
-      setTrainingData(prev => ({
-        ...prev,
-        status: 'idle'
-      }));
-      console.log('Context: Đã đặt isTraining = false và status = idle');
+  //     // Đặt trạng thái đầu tiên
+  //     setIsTraining(false);
+  //     setTrainingData(prev => ({
+  //       ...prev,
+  //       status: 'idle'
+  //     }));
+  //     console.log('Context: Đã đặt isTraining = false và status = idle');
       
-      // Dừng huấn luyện qua WebSocket (nếu kết nối)
-      if (webSocketConnected) {
-        try {
-          console.log('Context: Đang dừng huấn luyện qua WebSocket...');
-          await stopTrainingViaWebSocket();
-          console.log('Context: Đã gửi lệnh dừng qua WebSocket');
-        } catch (wsError) {
-          console.error('Context: Lỗi khi dừng huấn luyện qua WebSocket:', wsError);
-          // Ghi lại lỗi nhưng tiếp tục để thử qua REST API
-        }
-      } else {
-        console.warn('Context: WebSocket không được kết nối, không thể dừng qua WebSocket');
-      }
+  //     // Dừng huấn luyện qua WebSocket (nếu kết nối)
+  //     if (webSocketConnected) {
+  //       try {
+  //         console.log('Context: Đang dừng huấn luyện qua WebSocket...');
+  //         await stopTrainingViaWebSocket();
+  //         console.log('Context: Đã gửi lệnh dừng qua WebSocket');
+  //       } catch (wsError) {
+  //         console.error('Context: Lỗi khi dừng huấn luyện qua WebSocket:', wsError);
+  //         // Ghi lại lỗi nhưng tiếp tục để thử qua REST API
+  //       }
+  //     } else {
+  //       console.warn('Context: WebSocket không được kết nối, không thể dừng qua WebSocket');
+  //     }
       
-      // Dừng huấn luyện qua REST API (luôn thử cả hai cách)
-      try {
-        // Import động để tránh circular dependency
-        const { stopTraining: stopTrainingRest } = await import('../services/api');
-        console.log('Context: Đang dừng huấn luyện qua REST API...');
-        const result = await stopTrainingRest();
-        console.log('Context: Kết quả dừng huấn luyện từ REST API:', result);
-      } catch (restError) {
-        console.error('Context: Lỗi khi dừng huấn luyện qua REST API:', restError);
+  //     // Dừng huấn luyện qua REST API (luôn thử cả hai cách)
+  //     try {
+  //       // Import động để tránh circular dependency
+  //       const { stopTraining: stopTrainingRest } = await import('../services/api');
+  //       console.log('Context: Đang dừng huấn luyện qua REST API...');
+  //       const result = await stopTrainingRest();
+  //       console.log('Context: Kết quả dừng huấn luyện từ REST API:', result);
+  //     } catch (restError) {
+  //       console.error('Context: Lỗi khi dừng huấn luyện qua REST API:', restError);
         
-        // Nếu cả hai cách đều thất bại, ném lỗi
-        if (!webSocketConnected) {
-          throw new Error('Không thể dừng huấn luyện: cả WebSocket và REST API đều thất bại');
-        }
-      }
+  //       // Nếu cả hai cách đều thất bại, ném lỗi
+  //       if (!webSocketConnected) {
+  //         throw new Error('Không thể dừng huấn luyện: cả WebSocket và REST API đều thất bại');
+  //       }
+  //     }
       
-      // Cập nhật trạng thái UI dù API có thành công hay không - đảm bảo isTraining = false
-      setIsTraining(false);
-      setTrainingData(prev => ({
-        ...prev,
-        status: 'idle'
-      }));
+  //     // Cập nhật trạng thái UI dù API có thành công hay không - đảm bảo isTraining = false
+  //     setIsTraining(false);
+  //     setTrainingData(prev => ({
+  //       ...prev,
+  //       status: 'idle'
+  //     }));
       
-      // Thêm log thành công
-      setTrainingLogs(prev => [...prev, 'Đã dừng quá trình huấn luyện']);
+  //     // Thêm log thành công
+  //     setTrainingLogs(prev => [...prev, 'Đã dừng quá trình huấn luyện']);
       
-      console.log('Context: Đã hoàn tất dừng huấn luyện. Trạng thái:', {
-        webSocketConnected,
-        isTraining: false,
-        status: 'idle'
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi không xác định khi dừng huấn luyện');
-      setTrainingLogs(prev => [...prev, `Lỗi: ${err instanceof Error ? err.message : 'Lỗi không xác định khi dừng huấn luyện'}`]);
-      console.error('Context: Lỗi khi dừng huấn luyện:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //     console.log('Context: Đã hoàn tất dừng huấn luyện. Trạng thái:', {
+  //       webSocketConnected,
+  //       isTraining: false,
+  //       status: 'idle'
+  //     });
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : 'Lỗi không xác định khi dừng huấn luyện');
+  //     setTrainingLogs(prev => [...prev, `Lỗi: ${err instanceof Error ? err.message : 'Lỗi không xác định khi dừng huấn luyện'}`]);
+  //     console.error('Context: Lỗi khi dừng huấn luyện:', err);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   // Kết nối lại WebSocket
   const reconnectWebSocket = async () => {
@@ -340,11 +334,8 @@ export const TrainingProvider: React.FC<TrainingProviderProps> = ({ children }) 
         isTraining,
         isLoading,
         error,
-        progress,
         trainingLogs,
         webSocketConnected,
-        startTraining,
-        stopTraining,
         reconnectWebSocket,
       }}
     >

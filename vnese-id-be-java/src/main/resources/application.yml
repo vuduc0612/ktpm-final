@@ -37,4 +37,9 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
 
+# JWT Configuration
+jwt:
+  secret: vnese_id_jwt_secret_key_for_authentication_and_authorization_2024
+  expiration: 86400000  # 24 hours in milliseconds
+
 

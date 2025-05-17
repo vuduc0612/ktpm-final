@@ -8,11 +8,9 @@ import java.time.LocalDateTime;
  */
 public interface MetricTrain {
     Long getId();
-    Integer getEpoch();
     LocalDateTime getCreatedAt();
     User getUser();
     void setId(Long id);
-    void setEpoch(Integer epoch);
     void setCreatedAt(LocalDateTime dateTime);
     void setUser(User user);
 }

@@ -1,5 +1,6 @@
 package com.vneseid.vneseidbejava.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,6 +11,7 @@ import lombok.*;
 @NoArgsConstructor
 @Entity
 @Table(name = "id_cards")
+@ToString
 public class IdCard {
     @Id
     private String id;
@@ -43,5 +45,6 @@ public class IdCard {
 
     @ManyToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"idCardZoneMetricList", "idCardRegionList", "password"})
     private User user;
 }

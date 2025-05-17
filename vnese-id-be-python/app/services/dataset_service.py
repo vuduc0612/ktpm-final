@@ -117,7 +117,7 @@ val: {self.valid_dir / "images"}
         
         # Phân chia dữ liệu
         train_size = int(len(all_pairs) * self.train_ratio)
-        test_size = int(len(all_pairs) * self.valid_ratio)
+        test_size = int(len(all_pairs) * self.test_ratio)
         valid_size = len(all_pairs) - train_size - test_size
         
         print(f"Phân chia dữ liệu: {train_size} train, {valid_size} valid, {test_size} test")

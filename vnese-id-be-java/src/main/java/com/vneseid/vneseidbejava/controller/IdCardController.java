@@ -1,6 +1,5 @@
 package com.vneseid.vneseidbejava.controller;
 
-import com.vneseid.vneseidbejava.dto.IdCardDTO;
 import com.vneseid.vneseidbejava.model.IdCard;
 import com.vneseid.vneseidbejava.service.IdCardService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,7 +31,12 @@ public class IdCardController {
                 required = true,
                 schema = @Schema(type = "string", format = "binary")
             )
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file,
+            @Parameter(
+                description = "Model type to use for extraction (yolo, ocr)",
+                schema = @Schema(type = "string", defaultValue = "yolo")
+            )
+            @RequestParam(value = "modelType", required = false, defaultValue = "yolo") String modelType) {
         try {
             if (file == null || file.isEmpty()) {
                 Map<String, Object> errorResponse = new HashMap<>();
@@ -50,16 +54,17 @@ public class IdCardController {
                 return ResponseEntity.badRequest().body(errorResponse);
             }
             
-            // Gọi service để trích xuất thông tin
-            IdCardDTO idCardInfo = idCardService.extractIdCardInfo(file);
+            // Gọi service để trích xuất thông tin, truyền thêm tham số modelType
+            IdCard idCardInfo = idCardService.extractIdCardInfo(file, modelType);
             
-            // Trả về kết quả thành công
+            // Thêm thông tin về model đã sử dụng vào response
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "ID card information extracted successfully");
+            response.put("message", "ID card information extracted successfully using " + modelType + " model");
             response.put("data", idCardInfo);
+            response.put("modelType", modelType);
             
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(idCardInfo);
         } catch (Exception e) {
             // Trả về lỗi
             Map<String, Object> errorResponse = new HashMap<>();
@@ -72,11 +77,11 @@ public class IdCardController {
     @Operation(summary = "Save ID card information")
     @PostMapping("/save")
     public ResponseEntity<?> saveIdCardInfo(
-            @RequestBody IdCardDTO idCardDTO,
+            @RequestBody IdCard idCard,
             @RequestParam Long userId) {
         try {
             // Validate required fields
-            if (idCardDTO.getId() == null || idCardDTO.getId().isEmpty()) {
+            if (idCard.getId() == null || idCard.getId().isEmpty()) {
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("success", false);
                 errorResponse.put("message", "ID card number is required");
@@ -85,8 +90,8 @@ public class IdCardController {
             
             // Save ID card information
             System.out.println("Saving ID card information for user ID: " + userId);
-            System.out.println("ID card information: " + idCardDTO);
-            IdCard savedIdCard = idCardService.saveIdCardInfo(idCardDTO, userId);
+            System.out.println("ID card information: " + idCard);
+            IdCard savedIdCard = idCardService.saveIdCardInfo(idCard, userId);
 
             
             // Return successful response
@@ -113,11 +118,11 @@ public class IdCardController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<?> getIdCardByUserId(@PathVariable Long userId) {
         try {
-            IdCardDTO idCardDTO = idCardService.getIdCardByUserId(userId);
+            IdCard idCard = idCardService.getIdCardByUserId(userId);
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("data", idCardDTO);
+            response.put("data", idCard);
             
             return ResponseEntity.ok(response);
         } catch (EntityNotFoundException e) {

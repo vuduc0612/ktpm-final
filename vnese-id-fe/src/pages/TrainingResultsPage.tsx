@@ -1,23 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useTraining } from '../contexts/TrainingContext';
+import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/ui/Card';
 import Alert from '../components/ui/Alert';
 import Button from '../components/ui/Button';
 
 import IdCardZoneMetric from '../components/IdCardZoneMetric';
 import { getCardZoneMetrics, createCardZoneMetrics, IdCardZoneMetric as MetricType, CreateCardZoneMetricData } from '../services/metricService';
+import { downloadTrainedModel } from '../services/api';
 
 const TrainingResultsPage: React.FC = () => {
   const {
-    trainingData,
     error
   } = useTraining();
   
+  const { user } = useAuth();
   const [metrics, setMetrics] = useState<MetricType | null>(null);
   const [loading, setLoading] = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -54,7 +58,7 @@ const TrainingResultsPage: React.FC = () => {
         val_obj_loss: metrics.val_obj_loss,
         val_cls_loss: metrics.val_cls_loss,
         created_at: new Date().toISOString(),
-        user_id: 1 // Giả sử user_id là 1, trong thực tế nên lấy từ context hoặc storage
+        user_id: user?.userId || 1 // Sử dụng userId của người dùng đang đăng nhập
       };
       
       // Gọi API để lưu
@@ -65,6 +69,34 @@ const TrainingResultsPage: React.FC = () => {
       setSaveError('Có lỗi xảy ra khi lưu kết quả. Vui lòng thử lại.');
     } finally {
       setSaveLoading(false);
+    }
+  };
+
+  const handleDownloadModel = async () => {
+    setDownloadLoading(true);
+    setDownloadError(null);
+    
+    try {
+      const modelBlob = await downloadTrainedModel();
+      
+      // Tạo URL tạm thời cho Blob
+      const downloadUrl = window.URL.createObjectURL(modelBlob);
+      
+      // Tạo phần tử <a> và trigger click để tải xuống
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = 'best.pt'; // Tên file khi tải xuống
+      document.body.appendChild(a);
+      a.click();
+      
+      // Dọn dẹp
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Lỗi khi tải xuống mô hình:', error);
+      setDownloadError('Có lỗi xảy ra khi tải xuống mô hình. Vui lòng thử lại.');
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -107,36 +139,17 @@ const TrainingResultsPage: React.FC = () => {
             {saveError}
           </Alert>
         )}
-
-        {/* Thông tin tổng quan về mô hình */}
-        {/* <div className="mb-6">
-          <Card title="Thông tin mô hình">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500">Tên mô hình</div>
-                <div className="font-medium">{trainingData?.name || 'Chưa có tên'}</div>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500">Thời gian huấn luyện</div>
-                <div className="font-medium">{trainingData?.duration || '0:00:00'}</div>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500">Trạng thái</div>
-                <div className="flex items-center">
-                  <div className={`h-3 w-3 rounded-full mr-2 ${trainingData?.status === 'training' ? 'bg-green-500 animate-pulse' :
-                      trainingData?.status === 'completed' ? 'bg-blue-500' :
-                        trainingData?.status === 'failed' ? 'bg-red-500' : 'bg-gray-500'
-                    }`}></div>
-                  <span className="font-medium">
-                    {trainingData?.status === 'training' ? 'Đang huấn luyện' :
-                      trainingData?.status === 'completed' ? 'Hoàn thành' :
-                        trainingData?.status === 'failed' ? 'Thất bại' : 'Chưa huấn luyện'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div> */}
+        
+        {downloadError && (
+          <Alert
+            type="error"
+            title="Lỗi tải xuống"
+            onClose={() => setDownloadError(null)}
+            className="mb-6"
+          >
+            {downloadError}
+          </Alert>
+        )}
 
         {/* Kết quả chi tiết */}
         <div className="mb-6">
@@ -153,11 +166,11 @@ const TrainingResultsPage: React.FC = () => {
                 </div>
               ) : metrics?.confusion_matrix_path ? (
                 <img
-                  src={`http://localhost:8888/api/training/metrics-zone/image/${metrics.confusion_matrix_path}`}
+                  src={`http://localhost:8888/api/metrics/metrics-zone/image/${metrics.confusion_matrix_path}`}
                   alt="Confusion Matrix"
                   className="rounded shadow max-w-full h-auto cursor-pointer"
                   style={{maxHeight: 320}}
-                  onClick={() => window.open(`http://localhost:8888/api/training/metrics-zone/image/${metrics.confusion_matrix_path}`, '_blank')}
+                  onClick={() => window.open(`http://localhost:8888/api/metrics/metrics-zone/image/${metrics.confusion_matrix_path}`, '_blank')}
                   title="Click để xem ảnh chi tiết"
                 />
               ) : (
@@ -173,11 +186,11 @@ const TrainingResultsPage: React.FC = () => {
                 </div>
               ) : metrics?.results_path ? (
                 <img
-                  src={`http://localhost:8888/api/training/metrics-zone/image/${metrics.results_path}`}
+                  src={`http://localhost:8888/api/metrics/metrics-zone/image/${metrics.results_path}`}
                   alt="Result"
                   className="rounded shadow max-w-full h-auto cursor-pointer"
                   style={{maxHeight: 320}}
-                  onClick={() => window.open(`http://localhost:8888/api/training/metrics-zone/image/${metrics.results_path}`, '_blank')}
+                  onClick={() => window.open(`http://localhost:8888/api/metrics/metrics-zone/image/${metrics.results_path}`, '_blank')}
                   title="Click để xem ảnh chi tiết"
                 />
               ) : (
@@ -198,8 +211,10 @@ const TrainingResultsPage: React.FC = () => {
           </Button>
           <Button
             variant="primary"
+            onClick={handleDownloadModel}
+            disabled={downloadLoading}
           >
-            Tải về mô hình
+            {downloadLoading ? 'Đang tải xuống...' : 'Tải về mô hình'}
           </Button>
         </div>
       </div>

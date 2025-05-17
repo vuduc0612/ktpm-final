@@ -170,4 +170,24 @@ export const deleteYoloDataset = async (): Promise<{
       message: error instanceof Error ? error.message : 'Lỗi không xác định khi xóa dataset'
     };
   }
+};
+
+export const deleteYoloDatasetFile = async (filename: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await axios.delete(`${API_BASE_URL}/api/v1/upload/dataset-yolo/${filename}`);
+    const data = response.data;
+    return { success: data.success, message: data.message };
+  } catch (error: any) {
+    let message = 'Lỗi không xác định khi xóa file';
+    if (error.response && error.response.data && error.response.data.message) {
+      message = error.response.data.message;
+    } else if (error.message) {
+      message = error.message;
+    }
+    console.error('Lỗi khi xóa file:', error);
+    return { 
+      success: false, 
+      message
+    };
+  }
 }; 

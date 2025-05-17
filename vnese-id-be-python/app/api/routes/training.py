@@ -9,11 +9,11 @@ from pathlib import Path
 
 # Import từ service layer
 from app.services.training_service import (
-    TrainingParams, manager, start_training_service, stop_training_service, 
-    get_training_status_service, get_training_logs_service, handle_websocket_message
+    start_training_service, stop_training_service, 
+    get_training_status_service, get_training_logs_service
 )
-from app.models.metrics import IdCardRegionMetrics
-from app.services.metrics_service import get_metrics_by_epoch, get_latest_zone_metric
+from app.services.training.connection import manager, handle_websocket_message
+from app.services.training.models import TrainingParams
 from app.services.dataset_service import dataset_service
 
 
@@ -109,65 +109,6 @@ async def websocket_endpoint(websocket: WebSocket):
 async def get_training_status():
     """Kiểm tra trạng thái huấn luyện hiện tại."""
     return get_training_status_service()
-
-@router.get("/metrics", response_model=List[IdCardRegionMetrics])
-async def get_all_metrics(
-    limit: Optional[int] = Query(None, description="Giới hạn số lượng metrics trả về")
-):
-    """Lấy danh sách tất cả metrics của quá trình huấn luyện."""
-    metrics_result = get_training_metrics()
-    
-    metrics = metrics_result.metrics
-    
-    # Sắp xếp theo epoch giảm dần (mới nhất trước)
-    metrics.sort(key=lambda x: x.epoch, reverse=True)
-    
-    # Giới hạn số lượng nếu cần
-    if limit and limit > 0:
-        metrics = metrics[:limit]
-    
-    return metrics
-
-
-
-@router.get("/metrics/{epoch}")
-async def get_metrics_for_epoch(
-    epoch: int = FastAPIPath(..., description="Epoch cần lấy metrics")
-):
-    """Lấy metrics của một epoch cụ thể."""
-    metrics = get_metrics_by_epoch(epoch)
-    
-    if not metrics:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy metrics cho epoch {epoch}")
-    
-    return metrics
-
-
-
-
-@router.get("/metrics-zone/latest", response_model=IdCardRegionMetrics)
-async def get_latest_zone_metrics():
-    """
-    Lấy metric mới nhất (zone) từ file results.csv.
-    """
-    metric = get_latest_zone_metric()
-    if metric is None:
-        raise HTTPException(status_code=404, detail="Không tìm thấy metrics.")
-    return metric 
-
-@router.get("/metrics-zone/image/{image_name}")
-async def get_zone_image(image_name: str):
-    """
-    Lấy file ảnh từ thư mục corner_detection và trả về cho frontend.
-    image_name: Tên file ảnh (ví dụ: results.png, confusion_matrix.png)
-    """
-    # Chỉ cho phép truy cập file từ thư mục corner_detection
-    image_path = BASE_DIR / "corner_detection" / image_name
-    
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy file ảnh {image_name}")
-    
-    return FileResponse(str(image_path))
 
 @router.post("/create-dataset")
 async def create_dataset():

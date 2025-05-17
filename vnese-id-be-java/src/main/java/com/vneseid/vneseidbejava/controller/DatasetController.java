@@ -162,4 +162,29 @@ public class DatasetController {
             return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
+
+    @Operation(summary = "Delete a specific dataset file and its corresponding txt file")
+    @DeleteMapping("/dataset-yolo/{filename}")
+    public ResponseEntity<Map<String, Object>> deleteDatasetFile(
+            @Parameter(description = "Name of the file to delete (without extension)", required = true)
+            @PathVariable String filename) {
+        try {
+            boolean deleted = datasetService.deleteDatasetFile(filename);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            if (deleted) {
+                response.put("message", "File and its corresponding txt file deleted successfully");
+            } else {
+                response.put("message", "No matching files found to delete");
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Error deleting file: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
 } 

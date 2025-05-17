@@ -3,6 +3,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import { extractIdCardInfo, saveIdCardInfo } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ExtractedData {
   id?: string;
@@ -12,7 +13,7 @@ interface ExtractedData {
   nationality?: string;
   address?: string;
   place_of_birth?: string;
-  expire_date?: string;
+  expiration_date?: string;
   image_avt?: string;
 }
 
@@ -24,7 +25,7 @@ const EmptyExtractedData: ExtractedData = {
   nationality: '',
   address: '',
   place_of_birth: '',
-  expire_date: '',
+  expiration_date: '',
   image_avt: ''
 };
 
@@ -37,7 +38,9 @@ const ExtractionPage: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [modelType, setModelType] = useState<'yolo' | 'ocr'>('yolo');
   
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,9 +70,9 @@ const ExtractionPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Gọi API trích xuất thông tin
+      // Gọi API trích xuất thông tin với loại mô hình đã chọn
       try {
-        const extractedInfo = await extractIdCardInfo(imageFile);
+        const extractedInfo = await extractIdCardInfo(imageFile, modelType);
         setExtractedData(extractedInfo);
         setSuccess(true);
       } catch (apiError) {
@@ -88,7 +91,7 @@ const ExtractionPage: React.FC = () => {
           nationality: 'Việt Nam',
           address: 'Minh Hòa, Kinh Môn, Hải Dương',
           place_of_birth: 'Thôn Nội, Minh Hòa, Kinh Môn, Hải Dương',
-          expire_date: '12/06/2028',
+          expiration_date: '12/06/2028',
           image_avt: 'http://127.0.0.1:5000/avatar/030203007050_avt.jpg'
         };
         
@@ -124,7 +127,7 @@ Giới tính: ${extractedData.gender || 'N/A'}
 Quốc tịch: ${extractedData.nationality || 'N/A'}
 Quê quán: ${extractedData.address || 'N/A'}
 Nơi thường trú: ${extractedData.place_of_birth || 'N/A'}
-Có giá trị đến: ${extractedData.expire_date || 'N/A'}
+Có giá trị đến: ${extractedData.expiration_date || 'N/A'}
       `.trim();
       
       navigator.clipboard.writeText(textToCopy);
@@ -148,8 +151,11 @@ Có giá trị đến: ${extractedData.expire_date || 'N/A'}
       // In dữ liệu để kiểm tra trước khi gửi
       console.log('Dữ liệu sẽ gửi đi:', extractedData);
 
-      // Gọi API lưu thông tin CCCD
-      await saveIdCardInfo(extractedData);
+      // Lấy userId từ người dùng đã đăng nhập
+      const userId = user?.userId || 1;
+      
+      // Gọi API lưu thông tin CCCD với userId
+      await saveIdCardInfo(extractedData, userId);
       
       // Hiển thị thông báo thành công
       setSaveSuccess(true);
@@ -224,6 +230,39 @@ Có giá trị đến: ${extractedData.expire_date || 'N/A'}
                 </div>
               </div>
               
+              {/* Lựa chọn loại mô hình */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Loại mô hình nhận dạng
+                </label>
+                <div className="flex space-x-4">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      className="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
+                      name="modelType"
+                      value="yolo"
+                      checked={modelType === 'yolo'}
+                      onChange={() => setModelType('yolo')}
+                      disabled={isLoading}
+                    />
+                    <span className="ml-2">YOLO</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      className="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
+                      name="modelType"
+                      value="ocr"
+                      checked={modelType === 'ocr'}
+                      onChange={() => setModelType('ocr')}
+                      disabled={isLoading}
+                    />
+                    <span className="ml-2">OCR</span>
+                  </label>
+                </div>
+              </div>
+              
               {previewUrl ? (
                 <div className="mt-4 relative border border-gray-200 rounded-lg overflow-hidden">
                   <img 
@@ -252,7 +291,7 @@ Có giá trị đến: ${extractedData.expire_date || 'N/A'}
                     disabled={isLoading}
                     className="w-full"
                   >
-                    {isLoading ? 'Đang trích xuất...' : 'Trích xuất thông tin'}
+                    {isLoading ? 'Đang trích xuất...' : `Trích xuất thông tin (${modelType.toUpperCase()})`}
                   </Button>
                 </div>
               )}
@@ -334,7 +373,7 @@ Có giá trị đến: ${extractedData.expire_date || 'N/A'}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Có giá trị đến</label>
                   <div className="mt-1 p-2 bg-gray-50 rounded-md">
-                    {extractedData.expire_date || 'Chưa có thông tin'}
+                    {extractedData.expiration_date || 'Chưa có thông tin'}
                   </div>
                 </div>
               </div>

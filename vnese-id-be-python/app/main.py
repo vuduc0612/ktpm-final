@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-from app.api.routes import training
+from app.api.routes import training, metrics, extraction
 from app.core.config import settings
 
 # Tải biến môi trường từ file .env
@@ -30,12 +30,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Thêm router training
 app.include_router(training.router, prefix="/api/training", tags=["Training"])
+app.include_router(metrics.router, prefix="/api/metrics", tags=["Metrics"])
+app.include_router(extraction.router, prefix="/api/extraction", tags=["Extraction"])
 
 # Đường dẫn đến thư mục static
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
+
+# Tạo thư mục lưu kết quả detection nếu chưa có
+detection_results_dir = Path(__file__).parent.parent / "detection_results"
+detection_results_dir.mkdir(exist_ok=True)
 
 # Cấu hình phục vụ file tĩnh
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")

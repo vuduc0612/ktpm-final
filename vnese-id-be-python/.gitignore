@@ -54,3 +54,5 @@ htmlcov/
 
 # OS specific
 .DS_Store 
+dataset
+corner_detection

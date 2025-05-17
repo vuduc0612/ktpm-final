@@ -181,4 +181,31 @@ public class DatasetServiceImpl implements DatasetService {
             throw new RuntimeException("Failed to delete directory: " + directory.getAbsolutePath());
         }
     }
+
+    @Override
+    public boolean deleteDatasetFile(String filename) {
+        try {
+            Path datasetDir = Paths.get(DATASET_PATH);
+            if (!Files.exists(datasetDir)) {
+                return false;
+            }
+
+            // Tìm tất cả các file có cùng tên (không tính phần mở rộng)
+            boolean deleted = false;
+            try (Stream<Path> files = Files.list(datasetDir)) {
+                for (Path file : files.toList()) {
+                    String name = file.getFileName().toString();
+                    String nameWithoutExt = name.substring(0, name.lastIndexOf('.'));
+                    if (nameWithoutExt.equals(filename)) {
+                        Files.delete(file);
+                        deleted = true;
+                    }
+                }
+            }
+            
+            return deleted;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete dataset file", e);
+        }
+    }
 } 

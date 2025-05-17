@@ -1,7 +1,6 @@
 package com.vneseid.vneseidbejava.controller;
 
-import com.vneseid.vneseidbejava.model.MetricsSummary;
-import com.vneseid.vneseidbejava.model.TrainingMetrics;
+
 import com.vneseid.vneseidbejava.model.TrainingParam;
 import com.vneseid.vneseidbejava.model.TrainingStatus;
 import com.vneseid.vneseidbejava.service.TrainingService;
@@ -61,45 +60,4 @@ public class TrainingController {
         return ResponseEntity.ok(status);
     }
 
-    /**
-     * Lấy danh sách tất cả metrics của quá trình huấn luyện
-     * @param limit Giới hạn số lượng metrics trả về
-     * @return Danh sách metrics
-     */
-    @GetMapping("/metrics")
-    public ResponseEntity<List<TrainingMetrics>> getAllMetrics(
-            @RequestParam(required = false) Integer limit) {
-        log.info("Nhận yêu cầu lấy danh sách metrics với limit={}", limit);
-        List<TrainingMetrics> metrics = trainingService.getAllMetrics(limit);
-        return ResponseEntity.ok(metrics);
-    }
-
-    /**
-     * Lấy tóm tắt kết quả metrics của quá trình huấn luyện
-     * @return Tóm tắt metrics
-     */
-    @GetMapping("/metrics/summary")
-    public ResponseEntity<MetricsSummary> getMetricsSummary() {
-        log.info("Nhận yêu cầu lấy tóm tắt metrics");
-        MetricsSummary summary = trainingService.getMetricsSummary();
-        return ResponseEntity.ok(summary);
-    }
-
-    /**
-     * Lấy metrics của một epoch cụ thể
-     * @param epoch Epoch cần lấy metrics
-     * @return Metrics của epoch đó
-     */
-    @GetMapping("/metrics/{epoch}")
-    public ResponseEntity<TrainingMetrics> getMetricsForEpoch(
-            @PathVariable int epoch) {
-        log.info("Nhận yêu cầu lấy metrics cho epoch {}", epoch);
-        TrainingMetrics metrics = trainingService.getMetricsForEpoch(epoch);
-        
-        if (metrics == null) {
-            return ResponseEntity.notFound().build();
-        }
-        
-        return ResponseEntity.ok(metrics);
-    }
 } 

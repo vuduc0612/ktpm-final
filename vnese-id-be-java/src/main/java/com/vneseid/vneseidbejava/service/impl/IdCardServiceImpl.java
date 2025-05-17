@@ -1,7 +1,5 @@
 package com.vneseid.vneseidbejava.service.impl;
 
-import com.vneseid.vneseidbejava.dto.ExtractResponse;
-import com.vneseid.vneseidbejava.dto.IdCardDTO;
 import com.vneseid.vneseidbejava.model.IdCard;
 import com.vneseid.vneseidbejava.model.User;
 import com.vneseid.vneseidbejava.repository.IdCardRepository;
@@ -18,26 +16,33 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class IdCardServiceImpl implements IdCardService {
     
-    private static final String PYTHON_API_URL = "http://127.0.0.1:5000/extract_info";
+    private static final String PYTHON_API_URL = "http://127.0.0.1:8888/api/extraction";
     
     private final RestTemplate restTemplate;
     private final IdCardRepository idCardRepository;
     private final UserRepository userRepository;
     
     @Override
-    public IdCardDTO extractIdCardInfo(MultipartFile file) {
+    public IdCard extractIdCardInfo(MultipartFile file) {
+        // Gọi phương thức mới với tham số modelType mặc định là "yolo"
+        return extractIdCardInfo(file, "yolo");
+    }
+    
+    @Override
+    public IdCard extractIdCardInfo(MultipartFile file, String modelType) {
         try {
             // Chuẩn bị headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
             
-            // Chuẩn bị form data với file ảnh
+            // Chuẩn bị form data với file ảnh và tham số modelType
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
                 @Override
@@ -46,9 +51,16 @@ public class IdCardServiceImpl implements IdCardService {
                 }
             };
             body.add("file", fileResource);
+            body.add("model_type", modelType);  // Thêm tham số model_type vào request
             
             // Tạo HttpEntity
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            
+            // Check modelType
+            if ("ocr".equalsIgnoreCase(modelType)) {
+                // Trả về dữ liệu mẫu cho OCR
+                return getDummyOcrResult();
+            }
             
             // Gọi API Python
             ResponseEntity<Map> response = restTemplate.exchange(
@@ -60,15 +72,34 @@ public class IdCardServiceImpl implements IdCardService {
             
             // Trích xuất kết quả
             Map<String, Object> responseBody = response.getBody();
+            if (responseBody == null) {
+                throw new RuntimeException("Received null response from API");
+            }
+
+            // Log thông tin response để debug
+            System.out.println("API Response: " + responseBody);
+            
+            // Lấy data từ response
+            Map<String, Object> dataMap = (Map<String, Object>) responseBody.get("data");
+            if (dataMap == null) {
+                throw new RuntimeException("Response does not contain 'data' field");
+            }
+            
             IdCard idCard = new IdCard();
-            idCard.setId(responseBody.get("id").toString());
-            idCard.setName(responseBody.get("name").toString());
-            idCard.setDob(responseBody.get("dob").toString());
-            idCard.setGender(responseBody.get("gender").toString());
-            idCard.setAddress(responseBody.get("address").toString());
-            idCard.setNationality(responseBody.get("nationality").toString());
-            idCard.setPlaceOfBirth(responseBody.get("place_of_birth").toString());
-            idCard.setExpirationDate(responseBody.get("expiration_date").toString());
+            
+            // Kiểm tra và xử lý các trường có thể null từ dataMap
+            idCard.setId(getStringValue(dataMap, "id", ""));
+            idCard.setName(getStringValue(dataMap, "name", ""));
+            idCard.setDob(getStringValue(dataMap, "dob", ""));
+            idCard.setGender(getStringValue(dataMap, "gender", ""));
+            idCard.setAddress(getStringValue(dataMap, "address", ""));
+            idCard.setNationality(getStringValue(dataMap, "nationality", ""));
+            idCard.setPlaceOfBirth(getStringValue(dataMap, "place_of_birth", ""));
+            idCard.setExpirationDate(getStringValue(dataMap, "expire_date", ""));
+            idCard.setImageAvt(getStringValue(dataMap, "image_avt", ""));
+            
+            System.out.println("ID Card: " + idCard);
+            return idCard;
         } catch (IOException e) {
             throw new RuntimeException("Failed to process the image file", e);
         } catch (Exception e) {
@@ -76,25 +107,43 @@ public class IdCardServiceImpl implements IdCardService {
         }
     }
     
+    // Phương thức tạo dữ liệu mẫu khi sử dụng OCR
+    private IdCard getDummyOcrResult() {
+        IdCard dummyCard = new IdCard();
+        dummyCard.setId("079283012345");
+        dummyCard.setName("VŨ HỮU ĐỨC");
+        dummyCard.setDob("12/06/2003");
+        dummyCard.setGender("Nam");
+        dummyCard.setAddress("Thôn Nội, Minh Hòa, Kinh Môn, Hải Dương");
+        dummyCard.setNationality("Việt Nam");
+        dummyCard.setPlaceOfBirth("Hải Dương");
+        dummyCard.setExpirationDate("12/06/2028");
+        dummyCard.setImageAvt("http://localhost:8888/api/extraction/avatar/030203007050_avt.jpg");
+        return dummyCard;
+    }
+    
+    // Helper method để lấy giá trị String an toàn từ Map
+    private String getStringValue(Map<String, Object> map, String key, String defaultValue) {
+        Object value = map.get(key);
+        return value != null ? value.toString() : defaultValue;
+    }
+    
     @Override
-    public IdCard saveIdCardInfo(IdCardDTO idCardDTO, Long userId) {
+    public IdCard saveIdCardInfo(IdCard idCard, Long userId) {
         // Tìm người dùng
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
-        
-        // Kiểm tra xem đã có IdCard cho người dùng này chưa
-        IdCard idCard = new IdCard();
-        
+
         // Cập nhật thông tin từ DTO
-        idCard.setId(idCardDTO.getId());
-        idCard.setName(idCardDTO.getName());
-        idCard.setDob(idCardDTO.getDob());
-        idCard.setGender(idCardDTO.getGender());
-        idCard.setAddress(idCardDTO.getAddress());
-        idCard.setNationality(idCardDTO.getNationality());
-        idCard.setPlaceOfBirth(idCardDTO.getPlaceOfBirth());
-        idCard.setExpirationDate(idCardDTO.getExpireDate());
-        idCard.setImageAvt(idCardDTO.getImageAvt());
+        idCard.setId(idCard.getId());
+        idCard.setName(idCard.getName());
+        idCard.setDob(idCard.getDob());
+        idCard.setGender(idCard.getGender());
+        idCard.setAddress(idCard.getAddress());
+        idCard.setNationality(idCard.getNationality());
+        idCard.setPlaceOfBirth(idCard.getPlaceOfBirth());
+        idCard.setExpirationDate(idCard.getExpirationDate());
+        idCard.setImageAvt(idCard.getImageAvt());
         idCard.setUser(user);
         
         // Lưu và trả về kết quả
@@ -102,25 +151,10 @@ public class IdCardServiceImpl implements IdCardService {
     }
     
     @Override
-    public IdCardDTO getIdCardByUserId(Long userId) {
+    public IdCard getIdCardByUserId(Long userId) {
         IdCard idCard = idCardRepository.findByUserId(userId)
                 .orElseThrow(() -> new EntityNotFoundException("ID card not found for user with ID: " + userId));
         
-        return mapToDTO(idCard);
-    }
-    
-    // Helper method to map from entity to DTO
-    private IdCardDTO mapToDTO(IdCard idCard) {
-        IdCardDTO dto = new IdCardDTO();
-        dto.setId(idCard.getId());
-        dto.setName(idCard.getName());
-        dto.setDob(idCard.getDob());
-        dto.setGender(idCard.getGender());
-        dto.setAddress(idCard.getAddress());
-        dto.setNationality(idCard.getNationality());
-        dto.setPlaceOfBirth(idCard.getPlaceOfBirth());
-        dto.setExpireDate(idCard.getExpirationDate());
-        dto.setImageAvt(idCard.getImageAvt());
-        return dto;
+        return idCard;
     }
 } 

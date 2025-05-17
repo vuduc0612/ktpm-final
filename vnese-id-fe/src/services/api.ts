@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { TrainingConfig, TrainingStatus } from '../types';
+import { getCookie } from './cookieService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8881';
 const WEBSOCKET_URL = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8888/api/training/ws/training';
@@ -10,6 +11,20 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Thêm interceptor để tự động thêm token vào mỗi request
+api.interceptors.request.use(
+  (config) => {
+    const token = getCookie('auth_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // WebSocket Connection Management
 let trainingSocket: WebSocket | null = null;
@@ -181,6 +196,7 @@ export const startTraining = async (config: TrainingConfig): Promise<{ success: 
   try {
     // Gửi các tham số cấu hình không gồm file
     const response = await api.post('/api/v1/start', config);
+    console.log('Response from startTraining:', response.data);
     return response.data;
   } catch (error) {
     console.error('Lỗi khi bắt đầu huấn luyện:', error);
@@ -198,11 +214,25 @@ export const stopTraining = async (): Promise<TrainingStatus> => {
   }
 };
 
+// Tải xuống mô hình đã được huấn luyện
+export const downloadTrainedModel = async (): Promise<Blob> => {
+  try {
+    const response = await api.get('/api/v1/metrics/download', {
+      responseType: 'blob'
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Lỗi khi tải xuống mô hình:', error);
+    throw error;
+  }
+};
+
 // Extraction endpoints
-export const extractIdCardInfo = async (imageFile: File) => {
+export const extractIdCardInfo = async (imageFile: File, modelType: 'yolo' | 'ocr' = 'yolo') => {
   try {
     const formData = new FormData();
     formData.append('file', imageFile);
+    formData.append('modelType', modelType);
 
     const response = await api.post('/api/v1/idcard/extract', formData, {
       headers: {
@@ -211,8 +241,8 @@ export const extractIdCardInfo = async (imageFile: File) => {
     });
     
     // Kiểm tra và trả về dữ liệu
-    if (response.data.success) {
-      return response.data.data;
+    if (response.data) {
+      return response.data;
     } else {
       throw new Error(response.data.message || 'Lỗi trích xuất thông tin CCCD');
     }
@@ -253,6 +283,29 @@ export const saveIdCardInfo = async (idCardData: ExtractedData, userId: number =
     }
   } catch (error) {
     console.error('Lỗi khi lưu thông tin CCCD:', error);
+    throw error;
+  }
+};
+
+// Authentication endpoints
+export const login = async (username: string, password: string): Promise<{
+  success: boolean;
+  message: string;
+  user?: {
+    userId: number;
+    email: string;
+    username: string;
+  };
+  token?: string;
+}> => {
+  try {
+    const response = await api.post('/api/v1/auth/login', {
+      username,
+      password
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Lỗi khi đăng nhập:', error);
     throw error;
   }
 };

@@ -1,17 +1,23 @@
 import { ReactNode } from 'react';
 import Sidebar from './Sidebar';
+import Header from './Header';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 const Layout = ({ children }: LayoutProps) => {
+  const { isAuthenticated } = useAuth();
+  
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar />
+      {isAuthenticated && <Sidebar />}
       
       {/* Main content */}
-      <div className="lg:pl-64 flex flex-col flex-1 w-full h-screen overflow-x-hidden">
+      <div className={`flex flex-col flex-1 w-full h-screen overflow-x-hidden ${isAuthenticated ? 'lg:pl-64' : ''}`}>
+        <Header />
+        
         <main className="flex-1">
           {children}
         </main>

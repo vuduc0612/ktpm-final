@@ -1,23 +1,15 @@
 package com.vneseid.vneseidbejava.service;
 
-import com.vneseid.vneseidbejava.dto.IdCardZoneMetricRequest;
-import com.vneseid.vneseidbejava.dto.IdCardZoneMetricResponse;
-import com.vneseid.vneseidbejava.dto.TextRecognitionMetricRequest;
-import com.vneseid.vneseidbejava.dto.TextRecognitionMetricResponse;
+import com.vneseid.vneseidbejava.model.IdCardZoneMetric;
+import com.vneseid.vneseidbejava.model.TextRecognitionMetric;
+import org.springframework.core.io.Resource;
 
 public interface MetricService {
-    /**
-     * Lấy metric của card zone
-     */
-    IdCardZoneMetricResponse getMetricCardZone();
-    
-    /**
-     * Tạo metric mới cho card zone
-     */
-    IdCardZoneMetricResponse createMetricCardZone(IdCardZoneMetricRequest metric);
-    
-    /**
-     * Tạo metric mới cho text recognition
-     */
-    TextRecognitionMetricResponse createTextRecognitionMetric(TextRecognitionMetricRequest metric);
+    IdCardZoneMetric getMetricCardZone();
+
+    IdCardZoneMetric createMetricCardZone(IdCardZoneMetric metric, Long userId);
+
+    TextRecognitionMetric createTextRecognitionMetric(TextRecognitionMetric metric, Long userId);
+
+    Resource downloadModel();
 }

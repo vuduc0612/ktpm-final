@@ -8,12 +8,13 @@ import Card from '../components/ui/Card';
 import Alert from '../components/ui/Alert';
 import { TrainingConfig as TrainingConfigType } from '../types';
 import { startTraining } from '../services/api';
+import { stopTraining } from '../services/api';
 import { 
   uploadWeightsFile, 
   StoredFileInfo,
   uploadYoloDataset,
   YoloDatasetItem,
-  deleteYoloDataset
+  deleteYoloDataset,
 } from '../services/fileUploadService';
 
 const TrainingPage = () => {
@@ -22,7 +23,6 @@ const TrainingPage = () => {
     isTraining,
     isLoading,
     error,
-    stopTraining,
   } = useTraining();
 
   const yoloDatasetInputRef = useRef<HTMLInputElement>(null);
@@ -30,13 +30,16 @@ const TrainingPage = () => {
   const [uploading, setUploading] = useState(false);
   const [trainingFiles, setTrainingFiles] = useState<StoredFileInfo[]>([]);
   const [fileCount, setFileCount] = useState({ images: 0, annotations: 0 });
+  const [previewImages, setPreviewImages] = useState<{ [key: string]: string }>({});
+  const [annotationContents, setAnnotationContents] = useState<{ [key: string]: string }>({});
+  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<YoloDatasetItem[]>([]);
 
   const handleYoloDatasetUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
     try {
-      setUploading(true);
       setLocalError(null);
       
       const allFiles = Array.from(files);
@@ -51,10 +54,18 @@ const TrainingPage = () => {
         file.name.endsWith('.txt') || file.type === 'text/plain'
       );
 
+      // Đọc nội dung các file annotation
+      const newAnnotationContents: { [key: string]: string } = {};
+      for (const txtFile of txtFiles) {
+        const content = await txtFile.text();
+        const baseName = txtFile.name.substring(0, txtFile.name.lastIndexOf('.'));
+        newAnnotationContents[baseName] = content;
+      }
+      setAnnotationContents(prev => ({ ...prev, ...newAnnotationContents }));
+
       // Thông báo nếu không có file phù hợp
       if (imageFiles.length === 0) {
         setLocalError('Không tìm thấy file ảnh hợp lệ trong selection. Vui lòng chọn các file ảnh .jpg, .jpeg, .png');
-        setUploading(false);
         if (yoloDatasetInputRef.current) {
           yoloDatasetInputRef.current.value = '';
         }
@@ -91,7 +102,6 @@ const TrainingPage = () => {
       // Nếu không có cặp nào, báo lỗi
       if (yoloDataset.length === 0) {
         setLocalError('Không tìm thấy file ảnh hoặc cặp file ảnh + annotation hợp lệ');
-        setUploading(false);
         if (yoloDatasetInputRef.current) {
           yoloDatasetInputRef.current.value = '';
         }
@@ -101,65 +111,50 @@ const TrainingPage = () => {
       // Hiển thị cảnh báo về số lượng file ảnh không có annotation
       if (unmatchedImages.length > 0) {
         console.warn(`Có ${unmatchedImages.length}/${imageFiles.length} ảnh không có file annotation tương ứng`);
-        // Nếu toàn bộ ảnh đều không có annotation, hiển thị cảnh báo chi tiết
-        
       }
       
       // Thông báo đang tải lên
       console.log(`Đang tải lên ${yoloDataset.length} file (${imageFiles.length} ảnh, ${txtFiles.length} annotation)`);
       
-      // Tải lên dataset
-      try {
-        const uploadResult = await uploadYoloDataset(yoloDataset);
-        
-        if (uploadResult.success) {
-          // Cập nhật thông tin trực quan trên frontend - không query lại server
-          // Cộng dồn với số lượng file hiện tại đã có
-          const newImageCount = fileCount.images + imageFiles.length;
-          const newAnnotationCount = fileCount.annotations + (imageFiles.length - unmatchedImages.length);
-          
-          setFileCount({
-            images: newImageCount,
-            annotations: newAnnotationCount
-          });
-          
-          // Cập nhật danh sách file trực quan (tạo thông tin giả cho frontend)
-          const newTrainingFiles = [...trainingFiles];
-          
-          yoloDataset.forEach(item => {
-            newTrainingFiles.push({
-              fileName: item.imageFile.name,
-              filePath: item.imageFile.name, // Đường dẫn giả
-              fileType: item.imageFile.type,
-              fileSize: item.imageFile.size,
-              uploadedAt: new Date().toISOString(),
-              hasAnnotation: !!item.annotationFile,
-            });
-          });
-          
-          setTrainingFiles(newTrainingFiles);
-        } else {
-          setLocalError(uploadResult.message || 'Có lỗi xảy ra khi tải dataset YOLO lên');
-        }
-      } catch (uploadError) {
-        console.error('Lỗi khi tải lên dataset:', uploadError);
-        if (typeof uploadError === 'object' && uploadError !== null) {
-          // Nếu là đối tượng lỗi từ API
-          const errorObj = uploadError as { message?: string, failedFiles?: Array<{fileName: string, error: string}> };
-          if (errorObj.message) {
-            setLocalError(errorObj.message);
-          } else {
-            setLocalError('Lỗi không xác định khi tải dataset YOLO');
-          }
-        } else {
-          setLocalError('Lỗi không xác định khi tải dataset YOLO');
-        }
-      }
+      // Tạo preview URL cho các ảnh
+      const newPreviewImages: { [key: string]: string } = {};
+      imageFiles.forEach(file => {
+        newPreviewImages[file.name] = URL.createObjectURL(file);
+      });
+      setPreviewImages(prev => ({ ...prev, ...newPreviewImages }));
+      
+      // Lưu các file vào pending upload
+      setPendingUploadFiles(prev => [...prev, ...yoloDataset]);
+      
+      // Cập nhật thông tin trực quan trên frontend
+      const newImageCount = fileCount.images + imageFiles.length;
+      const newAnnotationCount = fileCount.annotations + (imageFiles.length - unmatchedImages.length);
+      
+      setFileCount({
+        images: newImageCount,
+        annotations: newAnnotationCount
+      });
+      
+      // Cập nhật danh sách file trực quan
+      const newTrainingFiles = [...trainingFiles];
+      
+      yoloDataset.forEach(item => {
+        newTrainingFiles.push({
+          fileName: item.imageFile.name,
+          filePath: item.imageFile.name, // Đường dẫn giả
+          fileType: item.imageFile.type,
+          fileSize: item.imageFile.size,
+          uploadedAt: new Date().toISOString(),
+          hasAnnotation: !!item.annotationFile,
+        });
+      });
+      
+      setTrainingFiles(newTrainingFiles);
+
     } catch (error) {
       console.error('Lỗi khi xử lý YOLO dataset:', error);
       setLocalError('Có lỗi xảy ra khi tải dataset YOLO. Vui lòng thử lại.');
     } finally {
-      setUploading(false);
       if (yoloDatasetInputRef.current) {
         yoloDatasetInputRef.current.value = '';
       }
@@ -183,6 +178,9 @@ const TrainingPage = () => {
       // Reset state trên frontend
       setTrainingFiles([]);
       setFileCount({ images: 0, annotations: 0 });
+      // Xóa tất cả preview URL
+      Object.values(previewImages).forEach(url => URL.revokeObjectURL(url));
+      setPreviewImages({});
       
     } catch (error) {
       console.error('Lỗi khi xóa tất cả file:', error);
@@ -192,10 +190,12 @@ const TrainingPage = () => {
     }
   };
 
+
   const handleStartTraining = async (config: TrainingConfigType, weightsFile?: File) => {
     try {
       setLocalError(null);
       console.log('Training config', config);
+      
       // Kiểm tra xem đã có dataset chưa
       if (trainingFiles.length === 0) {
         setLocalError('Vui lòng tải lên dataset huấn luyện trước khi bắt đầu');
@@ -212,6 +212,33 @@ const TrainingPage = () => {
       if (fileCount.annotations < fileCount.images) {
         // Chỉ là cảnh báo, vẫn cho phép tiếp tục
         console.warn(`Chỉ có ${fileCount.annotations}/${fileCount.images} ảnh có file annotation.`);
+      }
+
+      setUploading(true);
+      
+      // Lọc các file đang chờ upload theo danh sách đã chọn
+      const selectedPendingFiles = pendingUploadFiles.filter(item => 
+        selectedImages.has(item.imageFile.name)
+      );
+
+      // Upload các file đã chọn
+      if (selectedPendingFiles.length > 0) {
+        try {
+          const uploadResult = await uploadYoloDataset(selectedPendingFiles);
+          if (!uploadResult.success) {
+            setLocalError(uploadResult.message || 'Có lỗi xảy ra khi tải dataset YOLO lên');
+            return;
+          }
+          // Reset pending files sau khi upload thành công
+          setPendingUploadFiles([]);
+        } catch (error) {
+          console.error('Lỗi khi tải lên dataset:', error);
+          setLocalError('Không thể tải lên dataset. Vui lòng thử lại.');
+          return;
+        }
+      } else if (selectedImages.size === 0) {
+        setLocalError('Vui lòng chọn ít nhất một ảnh để huấn luyện');
+        return;
       }
       
       // Tải lên file weights nếu có
@@ -235,13 +262,10 @@ const TrainingPage = () => {
         config.pretrainedWeights = undefined;
       }
 
-      // Thêm thông báo log
       console.log('Bắt đầu huấn luyện với cấu hình:', config);
 
-      // Gọi API để bắt đầu huấn luyện
       try {
         await startTraining(config);
-        // Không cần gọi startTrainingContext nữa
       } catch (error) {
         console.error('Lỗi khi bắt đầu huấn luyện:', error);
         setLocalError(error instanceof Error ? error.message : 'Lỗi không xác định khi bắt đầu huấn luyện');
@@ -249,7 +273,31 @@ const TrainingPage = () => {
     } catch (error) {
       console.error('Lỗi khi bắt đầu huấn luyện:', error);
       setLocalError(error instanceof Error ? error.message : 'Lỗi không xác định khi bắt đầu huấn luyện');
+    } finally {
+      setUploading(false);
     }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedImages(new Set(trainingFiles.map(file => file.fileName)));
+    } else {
+      setSelectedImages(new Set());
+    }
+  };
+
+  const handleSelectImage = (fileName: string, checked: boolean) => {
+    const newSelected = new Set(selectedImages);
+    if (checked) {
+      newSelected.add(fileName);
+    } else {
+      newSelected.delete(fileName);
+    }
+    setSelectedImages(newSelected);
+  };
+
+  const handleDeleteSelected = async () => {
+    setSelectedImages(new Set());
   };
 
   return (
@@ -314,47 +362,35 @@ const TrainingPage = () => {
                 </div>
               </div>
 
-              {/* Hiển thị hướng dẫn sử dụng YOLO format */}
-              <div className="mb-4 bg-blue-50 p-4 rounded-md border border-blue-200">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">Hướng dẫn chuẩn bị YOLO dataset</h4>
-                <ol className="text-sm text-blue-700 list-decimal pl-5 space-y-2">
-                  <li>
-                    <div className="font-medium">Chuẩn bị ảnh CCCD</div>
-                    <p>Thu thập ảnh CCCD với nhiều góc độ, điều kiện ánh sáng khác nhau để đảm bảo mô hình nhận diện tốt.</p>
-                  </li>
-                  <li>
-                    <div className="font-medium">Sử dụng LabelImg để gán nhãn</div>
-                    <ul className="list-disc pl-5 mt-1 space-y-1">
-                      <li>Tải và cài đặt <a href="https://github.com/tzutalin/labelImg" target="_blank" rel="noopener noreferrer" className="underline">LabelImg</a></li>
-                      <li>Trong LabelImg, chọn "View → Auto Save mode" và "Change Save format → YOLO"</li>
-                      <li>Với mỗi ảnh, vẽ bounding box cho 4 góc của CCCD, đánh nhãn tương ứng: top_left (0), top_right (1), bottom_left (2), bottom_right (3)</li>
-                    </ul>
-                  </li>
-                  <li>
-                    <div className="font-medium">Định dạng file annotation YOLO</div>
-                    <p>Mỗi dòng trong file .txt có định dạng: <code className="px-1 py-0.5 bg-blue-100 rounded">class_id x_center y_center width height</code></p>
-                    <ul className="list-disc pl-5 mt-1 space-y-1">
-                      <li>class_id: 0-3 tương ứng với 4 góc CCCD</li>
-                      <li>x_center, y_center: tọa độ trung tâm của góc, chuẩn hóa từ 0-1</li>
-                      <li>width, height: chiều rộng và chiều cao của bounding box, chuẩn hóa từ 0-1</li>
-                    </ul>
-                  </li>
-                  <li>
-                    <div className="font-medium">Tổ chức cặp file</div>
-                    <p>Mỗi ảnh phải có một file .txt cùng tên (ví dụ: image1.jpg và image1.txt)</p>
-                  </li>
-                  <li>
-                    <div className="font-medium">Tải lên dataset</div>
-                    <p>Chọn tất cả file ảnh và file .txt annotation, hệ thống sẽ tự động ghép cặp dựa trên tên file</p>
-                  </li>
-                </ol>
-              </div>
+             
 
               {/* Hiển thị thông tin dataset */}
               <div className="mt-6">
                 {trainingFiles.length > 0 ? (
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-base font-medium text-gray-700 mb-2">Thông tin dataset:</h4>
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="text-base font-medium text-gray-700">Thông tin dataset:</h4>
+                      <div className="flex items-center space-x-4">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedImages.size === trainingFiles.length}
+                            onChange={(e) => handleSelectAll(e.target.checked)}
+                            className="form-checkbox h-5 w-5 text-blue-600 rounded"
+                          />
+                          <span className="text-sm text-gray-700">Chọn tất cả</span>
+                        </label>
+                        {selectedImages.size > 0 && (
+                          <Button
+                            variant="danger"
+                            onClick={handleDeleteSelected}
+                            disabled={isLoading || isTraining || uploading}
+                          >
+                            Bỏ chọn ({selectedImages.size})
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-3 bg-white rounded-md shadow-sm">
                         <div className="text-sm text-gray-500">Số lượng ảnh</div>
@@ -363,6 +399,80 @@ const TrainingPage = () => {
                       <div className="p-3 bg-white rounded-md shadow-sm">
                         <div className="text-sm text-gray-500">Số lượng annotation</div>
                         <div className="text-lg font-semibold text-green-600">{fileCount.annotations}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Hiển thị grid ảnh */}
+                    <div className="mt-4">
+                      <h4 className="text-base font-medium text-gray-700 mb-2">Ảnh đã tải lên:</h4>
+                      <div className="grid grid-cols-1 gap-6">
+                        {trainingFiles.map((file) => {
+                          const baseName = file.fileName.substring(0, file.fileName.lastIndexOf('.'));
+                          const annotationContent = annotationContents[baseName];
+                          
+                          return (
+                            <div key={file.fileName} className="bg-white rounded-lg shadow-sm p-4">
+                              <div className="flex gap-4">
+                                {/* Checkbox chọn ảnh */}
+                                <div className="flex items-start pt-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedImages.has(file.fileName)}
+                                    onChange={(e) => handleSelectImage(file.fileName, e.target.checked)}
+                                    className="form-checkbox h-5 w-5 text-blue-600 rounded"
+                                  />
+                                </div>
+                                {/* Phần ảnh */}
+                                <div className="w-1/3">
+                                  {previewImages[file.fileName] && (
+                                    <div className="relative">
+                                      <div className="aspect-w-1 aspect-h-1 rounded-lg overflow-hidden bg-gray-100">
+                                        <img
+                                          src={previewImages[file.fileName]}
+                                          alt={file.fileName}
+                                          className="w-full h-full object-cover"
+                                        />
+
+                                      </div>
+                                      <div className="mt-2">
+                                        <p className="text-sm text-gray-500 truncate">{file.fileName}</p>
+                                        {file.hasAnnotation ? (
+                                          <span className="inline-block mt-1 bg-green-500 text-white px-2 py-1 rounded-full text-xs">
+                                            Có annotation
+                                          </span>
+                                        ) : (
+                                          <span className="inline-block mt-1 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs">
+                                            Chưa có annotation
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Phần nội dung annotation */}
+                                <div className="w-2/3">
+                                  {file.hasAnnotation && annotationContent ? (
+                                    <div className="h-full">
+                                      <h5 className="text-sm font-medium text-gray-700 mb-2">Nội dung annotation:</h5>
+                                      <div className="bg-gray-50 rounded-lg p-3 h-full overflow-y-auto">
+                                        <pre className="text-sm text-gray-600 whitespace-pre-wrap break-words">
+                                          {annotationContent}
+                                        </pre>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="h-full flex items-center justify-center">
+                                      <p className="text-gray-500 text-sm">
+                                        {file.hasAnnotation ? 'Không có nội dung annotation' : 'Chưa có file annotation'}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                     
@@ -429,7 +539,9 @@ const TrainingPage = () => {
               <TrainingConfig
                 onSubmit={handleStartTraining}
                 isLoading={isLoading || isTraining || uploading}
-                onStopTraining={stopTraining}
+                onStopTraining={async () => {
+                  await stopTraining();
+                }}
                 isTraining={isTraining}
                 disabled={trainingFiles.length === 0}
               />

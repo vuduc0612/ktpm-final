@@ -9,12 +9,17 @@ const TextRecognitionTraining: React.FC = () => {
     startTraining, 
     stopTraining, 
     isTraining, 
-    progress, 
+    trainingData,
     trainingLogs,
     webSocketConnected,
     reconnectWebSocket,
     isLoading
   } = useTraining();
+
+  // Tính toán progress từ currentEpoch và totalEpochs
+  const progress = trainingData.totalEpochs > 0 
+    ? (trainingData.currentEpoch / trainingData.totalEpochs) * 100 
+    : 0;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const weightsFileInputRef = useRef<HTMLInputElement>(null);
@@ -53,18 +58,12 @@ const TextRecognitionTraining: React.FC = () => {
 
     // Chuyển đổi parameters thành định dạng config cho API
     const config = {
-      dataset_path: datasetPath,
-      model_type: 'text_recognition',
-      params: {
-        batch_size: batchSize,
-        learning_rate: learningRate,
-        epochs: epochs,
-        image_height: imageHeight,
-        image_width: imageWidth,
-        augmentation: augmentation,
-        language: language,
-        pretrained_weights: pretrainedWeights || undefined
-      }
+      batchSize: batchSize,
+      epochs: epochs,
+      learningRate: learningRate,
+      modelName: 'ocr_model',
+      pretrainedWeights: pretrainedWeights || undefined,
+      dataPath: datasetPath
     };
 
     try {

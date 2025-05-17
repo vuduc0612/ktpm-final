@@ -43,7 +43,9 @@ export const getCardZoneMetrics = async (): Promise<IdCardZoneMetric> => {
 
 export const createCardZoneMetrics = async (data: CreateCardZoneMetricData): Promise<IdCardZoneMetric> => {
   try {
+    console.log("Data:", data);
     const response = await axios.post(`${API_BASE_URL}/metrics/card-zone`, data);
+    console.log("Response:", response.data);
     return response.data.data;
   } catch (error) {
     console.error('Error creating card zone metrics:', error);
