@@ -53,7 +53,7 @@ public class IdCardZoneMetric implements MetricTrain {
     private String imageMatrix;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"idCardZoneMetricList", "idCardRegionList", "password"})
-    private User user;
+    @JoinColumn(name = "model_id")
+    @JsonIgnoreProperties({"idCardZoneMetrics", "trainingParams", "user"})
+    private Model model;
 }

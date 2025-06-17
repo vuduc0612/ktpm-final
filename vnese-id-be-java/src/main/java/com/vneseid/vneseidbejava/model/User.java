@@ -1,5 +1,6 @@
 package com.vneseid.vneseidbejava.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -18,6 +19,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String username;
+    @JsonIgnore
     private String password;
     private String email;
     @Column(name = "created_at")
@@ -25,9 +27,9 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnoreProperties("user")
-    private List<IdCardZoneMetric> idCardZoneMetricList = new ArrayList<>();
+    private List<Model> models = new ArrayList<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    @JsonIgnoreProperties("user")
+    @JsonIgnore
     private List<IdCard> idCardRegionList = new ArrayList<>();
 }

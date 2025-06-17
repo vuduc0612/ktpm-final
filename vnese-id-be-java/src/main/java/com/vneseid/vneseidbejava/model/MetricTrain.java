@@ -9,8 +9,8 @@ import java.time.LocalDateTime;
 public interface MetricTrain {
     Long getId();
     LocalDateTime getCreatedAt();
-    User getUser();
+    Model getModel();
     void setId(Long id);
     void setCreatedAt(LocalDateTime dateTime);
-    void setUser(User user);
+    void setModel(Model model);
 }

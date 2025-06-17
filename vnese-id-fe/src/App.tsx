@@ -11,6 +11,7 @@ import TextRecognitionTrainingPage from './pages/TextRecognitionTrainingPage';
 import TextRecognitionResultsPage from './pages/TextRecognitionResultsPage';
 import LoginPage from './pages/LoginPage';
 import PrivateRoute from './components/PrivateRoute';
+import ModelStatisticsPage from './pages/ModelStatisticsPage';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
                 <Route path="/training/text-recognition" element={<TextRecognitionTrainingPage />} />
                 <Route path="/training/text-recognition/results" element={<TextRecognitionResultsPage />} />
                 <Route path="/extraction" element={<ExtractionPage />} />
+                <Route path="/model-statistics" element={<ModelStatisticsPage />} />
               </Route>
             </Routes>
           </Layout>

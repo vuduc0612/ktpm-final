@@ -27,6 +27,7 @@ const TrainingResultsPage: React.FC = () => {
     const fetchMetrics = async () => {
       try {
         const data = await getCardZoneMetrics();
+        console.log("Data base:", data);
         setMetrics(data);
       } catch (error) {
         console.error('Error fetching metrics:', error);
@@ -57,10 +58,19 @@ const TrainingResultsPage: React.FC = () => {
         val_box_loss: metrics.val_box_loss,
         val_obj_loss: metrics.val_obj_loss,
         val_cls_loss: metrics.val_cls_loss,
-        created_at: new Date().toISOString(),
+        // Format created_at về ISO-8601 không timezone
+        created_at: (() => {
+          const d = new Date(metrics.created_at);
+          return d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0') + 'T' +
+            String(d.getHours()).padStart(2, '0') + ':' +
+            String(d.getMinutes()).padStart(2, '0') + ':' +
+            String(d.getSeconds()).padStart(2, '0');
+        })(),
         user_id: user?.userId || 1 // Sử dụng userId của người dùng đang đăng nhập
       };
-      
+      console.log("Save Data:", saveData);
       // Gọi API để lưu
       await createCardZoneMetrics(saveData);
       setSaveSuccess(true);

@@ -32,8 +32,8 @@ export interface TrainingConfig {
   epochs: number;
   learningRate: number;
   modelName: string;
-  pretrainedWeights?: string;
-  dataPath?: string;
+  datasetPath: string;
+  pretrainedWeightPath?: string;
 }
 
 export interface TrainingStatus {

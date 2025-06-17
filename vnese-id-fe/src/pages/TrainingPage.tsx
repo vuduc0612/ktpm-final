@@ -208,12 +208,6 @@ const TrainingPage = () => {
         return;
       }
       
-      // Thông báo nếu chỉ có một phần file có annotation
-      if (fileCount.annotations < fileCount.images) {
-        // Chỉ là cảnh báo, vẫn cho phép tiếp tục
-        console.warn(`Chỉ có ${fileCount.annotations}/${fileCount.images} ảnh có file annotation.`);
-      }
-
       setUploading(true);
       
       // Lọc các file đang chờ upload theo danh sách đã chọn
@@ -242,12 +236,12 @@ const TrainingPage = () => {
       }
       
       // Tải lên file weights nếu có
+      let pretrainedWeightPath = undefined;
       if (weightsFile) {
         try {
           const uploadResult = await uploadWeightsFile(weightsFile);
           if (uploadResult.success) {
-            // Chỉ lưu tên file weights, không tải lên lại file
-            config.pretrainedWeights = uploadResult.filePath;
+            pretrainedWeightPath = uploadResult.filePath;
           } else {
             setLocalError(`Không thể tải lên file weights: ${uploadResult.message || 'Lỗi không xác định'}`);
             return;
@@ -257,19 +251,15 @@ const TrainingPage = () => {
           setLocalError('Không thể tải lên file weights. Vui lòng thử lại.');
           return;
         }
-      } else {
-        // Nếu không có file weights, đặt giá trị là undefined
-        config.pretrainedWeights = undefined;
       }
 
-      console.log('Bắt đầu huấn luyện với cấu hình:', config);
+      // Gửi config với datasetPath và pretrainedWeightPath
+      await startTraining({
+        ...config,
+        datasetPath: '/dataset/yolo', // Đường dẫn mặc định hoặc lấy từ config của bạn
+        pretrainedWeightPath: pretrainedWeightPath
+      });
 
-      try {
-        await startTraining(config);
-      } catch (error) {
-        console.error('Lỗi khi bắt đầu huấn luyện:', error);
-        setLocalError(error instanceof Error ? error.message : 'Lỗi không xác định khi bắt đầu huấn luyện');
-      }
     } catch (error) {
       console.error('Lỗi khi bắt đầu huấn luyện:', error);
       setLocalError(error instanceof Error ? error.message : 'Lỗi không xác định khi bắt đầu huấn luyện');

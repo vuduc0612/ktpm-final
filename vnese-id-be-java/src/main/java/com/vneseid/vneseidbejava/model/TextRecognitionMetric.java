@@ -46,7 +46,7 @@ public class TextRecognitionMetric implements MetricTrain {
     private LocalDateTime createdAt;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "model_id", nullable = false)
     @JsonIgnoreProperties({"idCardZoneMetricList", "idCardRegionList", "password"})
-    private User user;
+    private Model model;
 } 

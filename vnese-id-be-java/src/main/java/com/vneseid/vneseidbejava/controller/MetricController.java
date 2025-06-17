@@ -13,6 +13,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/metrics")
 @RequiredArgsConstructor
@@ -75,6 +77,26 @@ public class MetricController {
                     .body(resource);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/top-results")
+    public ResponseEntity<ResponseObject> getTopResults(@RequestParam Long userId) {
+        try {
+            // Lấy top 5 kết quả
+            List<IdCardZoneMetric> topMetrics = metricService.getTopMetricsByUserId(userId, 5);
+            
+            return ResponseEntity.ok(ResponseObject.builder()
+                    .status(HttpStatus.OK)
+                    .message("Lấy top kết quả thành công")
+                    .data(topMetrics)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ResponseObject.builder()
+                            .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .message("Lỗi khi lấy top kết quả: " + e.getMessage())
+                            .build());
         }
     }
 }

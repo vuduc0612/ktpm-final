@@ -3,20 +3,28 @@ package com.vneseid.vneseidbejava.service.impl;
 import com.vneseid.vneseidbejava.factory.IdCardZoneMetricFactory;
 import com.vneseid.vneseidbejava.factory.TextRecognitionMetricFactory;
 import com.vneseid.vneseidbejava.model.IdCardZoneMetric;
+import com.vneseid.vneseidbejava.model.Model;
 import com.vneseid.vneseidbejava.model.TextRecognitionMetric;
+import com.vneseid.vneseidbejava.model.User;
 import com.vneseid.vneseidbejava.repository.IdCardZoneMetricRepository;
+import com.vneseid.vneseidbejava.repository.ModelRepository;
 import com.vneseid.vneseidbejava.repository.TextRecognitionMetricRepository;
+import com.vneseid.vneseidbejava.repository.UserRepository;
 import com.vneseid.vneseidbejava.service.MetricService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.File;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +36,8 @@ public class MetricServiceImpl implements MetricService {
     private final TextRecognitionMetricRepository textRecognitionMetricRepository;
     private final IdCardZoneMetricFactory idCardZoneMetricFactory;
     private final TextRecognitionMetricFactory textRecognitionMetricFactory;
+    private final UserRepository userRepository;
+    private final ModelRepository modelRepository;
 
     @Override
     public IdCardZoneMetric getMetricCardZone() {
@@ -47,7 +57,14 @@ public class MetricServiceImpl implements MetricService {
     @Override
     public IdCardZoneMetric createMetricCardZone(IdCardZoneMetric metric, Long userId) {
         // Sử dụng Factory để chuẩn bị metric
-        IdCardZoneMetric preparedMetric = idCardZoneMetricFactory.prepareMetric(metric, userId);
+        User user = userRepository.findById(userId).get();
+        Model model = new Model();
+        model.setUser(user);
+        model.setModelType("Recognize_Zone_YOLO");
+        model.setModelName("Zone");
+        model.setCreatedAt(metric.getCreatedAt());
+        Model savedModel = modelRepository.save(model);
+        IdCardZoneMetric preparedMetric = idCardZoneMetricFactory.prepareMetric(metric, savedModel.getId());
         
         // Lưu vào database
         return idCardZoneMetricRepository.save(preparedMetric);
@@ -75,5 +92,10 @@ public class MetricServiceImpl implements MetricService {
         
         // Tạo Resource từ file
         return new FileSystemResource(modelFile);
+    }
+
+    @Override
+    public List<IdCardZoneMetric> getTopMetricsByUserId(Long userId, int limit) {
+        return idCardZoneMetricRepository.findTopByModelUserIdOrderByPrecisionDesc(userId, limit);
     }
 }

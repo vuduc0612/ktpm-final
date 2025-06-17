@@ -6,7 +6,8 @@ import {
   DocumentTextIcon, 
   Bars3Icon,
   XMarkIcon,
-  DocumentMagnifyingGlassIcon
+  DocumentMagnifyingGlassIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -14,6 +15,11 @@ const navigation = [
   { name: 'Huấn luyện mô hình nhận dạng vùng CCCD', to: '/training', icon: AcademicCapIcon },
   { name: 'Huấn luyện nhận dạng văn bản', to: '/training/text-recognition', icon: DocumentMagnifyingGlassIcon },
   { name: 'Trích xuất thông tin', to: '/extraction', icon: DocumentTextIcon },
+  {
+    name: 'Thống kê mô hình',
+    to: '/model-statistics',
+    icon: ChartBarIcon,
+  },
 ];
 
 interface SidebarProps {

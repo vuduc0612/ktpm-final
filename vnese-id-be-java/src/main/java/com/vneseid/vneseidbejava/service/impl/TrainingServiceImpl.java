@@ -12,6 +12,12 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.vneseid.vneseidbejava.model.Model;
+import com.vneseid.vneseidbejava.model.IdCardZoneMetric;
+import com.vneseid.vneseidbejava.repository.ModelRepository;
+import com.vneseid.vneseidbejava.repository.TrainingParamRepository;
+import com.vneseid.vneseidbejava.repository.IdCardZoneMetricRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Map;
 
@@ -26,11 +32,18 @@ public class TrainingServiceImpl implements TrainingService {
     @Value("${fastapi.base-url}")
     private String fastApiBaseUrl;
 
+    @Autowired
+    private ModelRepository modelRepository;
+    @Autowired
+    private TrainingParamRepository trainingParamRepository;
+    @Autowired
+    private IdCardZoneMetricRepository idCardZoneMetricRepository;
+
     @Override
     public TrainingStatus startTraining(TrainingParam params) {
         try {
-            params.setDataPath("D:\\vnese-id-management\\vnese-id-be-python\\dataset\\corners");
-            params.setPretrainedWeights(params.getPretrainedWeights());
+            params.setDatasetPath("D:\\vnese-id-management\\vnese-id-be-python\\dataset\\corners");
+            params.setPretrainedWeightPath(params.getPretrainedWeightPath());
             String url = fastApiBaseUrl + "/training/start";
             HttpEntity<TrainingParam> request = new HttpEntity<>(params);
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
@@ -79,6 +92,16 @@ public class TrainingServiceImpl implements TrainingService {
         }
     }
 
+    public void saveModelAndRelatedEntities(Model model, TrainingParam trainingParam, IdCardZoneMetric idCardZoneMetric) {
+        // 1. Lưu model trước
+        Model savedModel = modelRepository.save(model);
+        // 2. Set model cho trainingParam và lưu
+        trainingParam.setModel(savedModel);
+        trainingParamRepository.save(trainingParam);
+        // 3. Set model cho idCardZoneMetric và lưu
+        idCardZoneMetric.setModel(savedModel);
+        idCardZoneMetricRepository.save(idCardZoneMetric);
+    }
 
     private TrainingStatus mapToTrainingStatus(Map<String, Object> statusMap) {
         if (statusMap == null) {

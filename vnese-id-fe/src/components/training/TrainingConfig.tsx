@@ -39,13 +39,15 @@ const TrainingConfig = ({ onSubmit, isLoading = false, onStopTraining, isTrainin
       epochs: 3,
       learningRate: 0.01,
       modelName: `model_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`,
-      pretrainedWeights: '',
+      datasetPath: '/dataset/yolo',
+      pretrainedWeightPath: '',
     },
     validationSchema,
     onSubmit: async (values) => {
       await onSubmit({
         ...values,
-        modelName: `model_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`
+        modelName: `model_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`,
+        pretrainedWeightPath: selectedWeightsFile ? selectedWeightsFile.name : undefined
       }, selectedWeightsFile || undefined);
     },
   });
@@ -54,7 +56,7 @@ const TrainingConfig = ({ onSubmit, isLoading = false, onStopTraining, isTrainin
     const file = event.target.files?.[0];
     if (file) {
       setSelectedWeightsFile(file);
-      formik.setFieldValue('pretrainedWeights', file.name);
+      formik.setFieldValue('pretrainedWeightPath', file.name);
     }
   };
 
